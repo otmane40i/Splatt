@@ -13,6 +13,9 @@ export default async function AdminOrdersPage({
     where: searchParams.status ? { status: searchParams.status } : undefined,
     include: { product: true },
     orderBy: { createdAt: "desc" }
+  }).catch((error) => {
+    console.error("Admin orders DB unavailable:", error);
+    return [];
   });
   return <OrdersManager orders={orders} activeStatus={searchParams.status} />;
 }

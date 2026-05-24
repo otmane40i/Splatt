@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { formatMad } from "@/lib/utils";
+import { sampleProducts } from "@/lib/catalog";
 
 export const dynamic = "force-dynamic";
 
@@ -10,7 +11,10 @@ export default async function AdminDashboard() {
     prisma.order.aggregate({ _sum: { totalPrice: true }, where: { status: { not: "cancelled" } } }),
     prisma.product.count({ where: { inStock: true } }),
     prisma.order.findMany({ take: 6, orderBy: { createdAt: "desc" } })
-  ]);
+  ]).catch((error) => {
+    console.error("Admin dashboard DB unavailable:", error);
+    return [0, 0, { _sum: { totalPrice: 0 } }, sampleProducts.length, []] as const;
+  });
   const stats = [
     ["Total orders", totalOrders.toString()],
     ["Pending", pending.toString()],

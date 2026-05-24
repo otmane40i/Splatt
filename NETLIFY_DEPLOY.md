@@ -27,6 +27,7 @@ NEXTAUTH_SECRET=replace-with-a-long-random-secret
 NEXTAUTH_URL=https://your-netlify-site-name.netlify.app
 WHATSAPP_NUMBER=212600000000
 ADMIN_EMAIL=admin@splatt.ma
+ADMIN_PASSWORD=changeme123
 ```
 
 ## Important Production Note
