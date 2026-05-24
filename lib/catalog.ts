@@ -1,5 +1,3 @@
-import { prisma } from "@/lib/prisma";
-
 export type StoreProduct = {
   id: string;
   slug: string;
@@ -17,6 +15,11 @@ export type StoreProduct = {
 };
 
 const now = new Date("2026-05-24T00:00:00.000Z");
+
+async function getPrisma() {
+  const prismaModule = await import("@/lib/prisma");
+  return prismaModule.prisma;
+}
 
 export const sampleProducts: StoreProduct[] = [
   {
@@ -83,6 +86,7 @@ export const sampleProducts: StoreProduct[] = [
 
 export async function getProducts(category?: string) {
   try {
+    const prisma = await getPrisma();
     return await prisma.product.findMany({
       where: category ? { category } : undefined,
       orderBy: [{ featured: "desc" }, { createdAt: "asc" }]
@@ -95,6 +99,7 @@ export async function getProducts(category?: string) {
 
 export async function getFeaturedProducts() {
   try {
+    const prisma = await getPrisma();
     return await prisma.product.findMany({
       where: { featured: true, inStock: true },
       orderBy: { createdAt: "asc" },
@@ -108,6 +113,7 @@ export async function getFeaturedProducts() {
 
 export async function getProductBySlug(slug: string) {
   try {
+    const prisma = await getPrisma();
     const product = await prisma.product.findUnique({ where: { slug } });
     return product ?? sampleProducts.find((item) => item.slug === slug) ?? null;
   } catch (error) {
