@@ -1,0 +1,34 @@
+import { prisma } from "@/lib/prisma";
+import { ProductCard } from "@/components/product-card";
+import { ShopFilters } from "@/components/shop-filters";
+
+export const dynamic = "force-dynamic";
+
+export default async function ShopPage({
+  searchParams
+}: {
+  searchParams: { category?: string };
+}) {
+  const categories = await prisma.product.findMany({
+    select: { category: true },
+    distinct: ["category"],
+    orderBy: { category: "asc" }
+  });
+  const products = await prisma.product.findMany({
+    where: searchParams.category ? { category: searchParams.category } : undefined,
+    orderBy: [{ featured: "desc" }, { createdAt: "asc" }]
+  });
+
+  return (
+    <main className="container-page py-12">
+      <div className="mb-8">
+        <p className="text-sm font-black uppercase text-splatt-pink">Shop</p>
+        <h1 className="font-space text-5xl font-black">DIY figures</h1>
+      </div>
+      <ShopFilters categories={categories.map((item) => item.category)} active={searchParams.category} />
+      <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+        {products.map((product) => <ProductCard key={product.id} product={product} />)}
+      </div>
+    </main>
+  );
+}

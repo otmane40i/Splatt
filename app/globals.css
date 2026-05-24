@@ -1,0 +1,53 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: 0 0% 2%;
+  --foreground: 0 0% 98%;
+  --card: 0 0% 5%;
+  --card-foreground: 0 0% 98%;
+  --primary: 328 100% 59%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 177 68% 39%;
+  --secondary-foreground: 0 0% 100%;
+  --muted: 0 0% 10%;
+  --muted-foreground: 0 0% 68%;
+  --accent: 21 100% 55%;
+  --accent-foreground: 0 0% 100%;
+  --destructive: 0 78% 55%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 0 0% 100%;
+  --input: 0 0% 100%;
+  --ring: 328 100% 59%;
+  --radius: 1rem;
+}
+
+* {
+  @apply border-border;
+}
+
+html {
+  @apply scroll-smooth;
+}
+
+body {
+  @apply min-w-80 bg-splatt-black text-foreground antialiased;
+}
+
+::selection {
+  background: #ff2e93;
+  color: white;
+}
+
+.glass {
+  @apply rounded-2xl border border-white/10 bg-white/[0.03] shadow-glow backdrop-blur-xl;
+}
+
+.container-page {
+  @apply mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8;
+}
+
+.orb {
+  @apply pointer-events-none absolute rounded-full blur-3xl;
+}
