@@ -3,13 +3,13 @@
 import Image from "next/image";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import type { Product } from "@prisma/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/components/language-provider";
 import { formatMad } from "@/lib/utils";
+import type { StoreProduct } from "@/lib/catalog";
 
-export function ProductCard({ product }: { product: Product }) {
+export function ProductCard({ product }: { product: StoreProduct }) {
   const { locale } = useLanguage();
   const name = locale === "fr" ? product.nameFR : product.nameEN;
   const description = locale === "fr" ? product.descFR : product.descEN;

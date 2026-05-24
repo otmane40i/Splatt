@@ -1,20 +1,16 @@
 import Link from "next/link";
-import { prisma } from "@/lib/prisma";
 import { Button } from "@/components/ui/button";
 import { GradientOrbs } from "@/components/gradient-orbs";
 import { ProductCard } from "@/components/product-card";
 import { Reveal } from "@/components/reveal";
 import { BrandSplash } from "@/components/brand-splash";
 import { HeroLogoStage } from "@/components/hero-logo-stage";
+import { getFeaturedProducts } from "@/lib/catalog";
 
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const products = await prisma.product.findMany({
-    where: { featured: true, inStock: true },
-    orderBy: { createdAt: "asc" },
-    take: 4
-  });
+  const products = await getFeaturedProducts();
 
   return (
     <main>

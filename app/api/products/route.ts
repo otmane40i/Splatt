@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { prisma } from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
 import { productSchema } from "@/lib/validation";
+import { getProducts } from "@/lib/catalog";
 
 async function requireAdmin() {
   const session = await getServerSession(authOptions);
@@ -10,9 +11,7 @@ async function requireAdmin() {
 }
 
 export async function GET() {
-  const products = await prisma.product.findMany({
-    orderBy: { createdAt: "desc" }
-  });
+  const products = await getProducts();
   return NextResponse.json(products);
 }
 

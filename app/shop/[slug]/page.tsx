@@ -1,14 +1,14 @@
 import Image from "next/image";
 import { notFound } from "next/navigation";
-import { prisma } from "@/lib/prisma";
 import { Badge } from "@/components/ui/badge";
 import { OrderModal } from "@/components/order-modal";
 import { formatMad } from "@/lib/utils";
+import { getProductBySlug } from "@/lib/catalog";
 
 export const dynamic = "force-dynamic";
 
 export default async function ProductPage({ params }: { params: { slug: string } }) {
-  const product = await prisma.product.findUnique({ where: { slug: params.slug } });
+  const product = await getProductBySlug(params.slug);
   if (!product) notFound();
 
   return (

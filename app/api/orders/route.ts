@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { prisma } from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
 import { orderSchema, statusSchema } from "@/lib/validation";
+import { sampleProducts, type StoreProduct } from "@/lib/catalog";
 
 function whatsappUrl(message: string) {
   const number = process.env.WHATSAPP_NUMBER ?? "212600000000";
@@ -28,28 +29,38 @@ export async function POST(request: Request) {
   const parsed = orderSchema.safeParse(await request.json());
   if (!parsed.success) return NextResponse.json({ error: "Invalid order" }, { status: 400 });
 
-  const product = await prisma.product.findUnique({ where: { id: parsed.data.productId } });
+  let product: StoreProduct | null = null;
+  try {
+    product = await prisma.product.findUnique({ where: { id: parsed.data.productId } });
+  } catch (error) {
+    console.error("Order product lookup fell back to static products:", error);
+  }
+  product ??= sampleProducts.find((item) => item.id === parsed.data.productId || item.slug === parsed.data.productId) ?? null;
   if (!product || !product.inStock) return NextResponse.json({ error: "Product unavailable" }, { status: 404 });
 
   const totalPrice = product.price * parsed.data.quantity;
-  const order = await prisma.order.create({
-    data: {
-      ...parsed.data,
-      productName: product.nameEN,
-      productPrice: product.price,
-      totalPrice
-    }
-  });
+  const orderData = {
+    ...parsed.data,
+    productName: product.nameEN,
+    productPrice: product.price,
+    totalPrice
+  };
+  let order = null;
+  try {
+    order = await prisma.order.create({ data: orderData });
+  } catch (error) {
+    console.error("Order was not saved, continuing to WhatsApp:", error);
+  }
 
   const message = [
     "Salam SPLATT., I want to confirm this order:",
-    `${order.productName} x${order.quantity}`,
-    `Total: ${order.totalPrice} MAD`,
-    `Name: ${order.customerName}`,
-    `Phone: ${order.customerPhone}`,
-    `City: ${order.customerCity}`,
-    `Address: ${order.customerAddress}`,
-    order.notes ? `Notes: ${order.notes}` : ""
+    `${orderData.productName} x${orderData.quantity}`,
+    `Total: ${orderData.totalPrice} MAD`,
+    `Name: ${orderData.customerName}`,
+    `Phone: ${orderData.customerPhone}`,
+    `City: ${orderData.customerCity}`,
+    `Address: ${orderData.customerAddress}`,
+    orderData.notes ? `Notes: ${orderData.notes}` : ""
   ].filter(Boolean).join("\n");
 
   return NextResponse.json({ order, whatsappUrl: whatsappUrl(message) }, { status: 201 });

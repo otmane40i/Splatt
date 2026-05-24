@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import type { Product } from "@prisma/client";
 import { MessageCircle, Minus, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -11,12 +10,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { useLanguage } from "@/components/language-provider";
 import { dictionary } from "@/lib/i18n";
 import { formatMad } from "@/lib/utils";
+import type { StoreProduct } from "@/lib/catalog";
 
 type OrderResponse = {
   whatsappUrl: string;
 };
 
-export function OrderModal({ product }: { product: Product }) {
+export function OrderModal({ product }: { product: StoreProduct }) {
   const [quantity, setQuantity] = useState(1);
   const [open, setOpen] = useState(false);
   const [error, setError] = useState("");
