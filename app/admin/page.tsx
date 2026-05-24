@@ -1,27 +1,66 @@
 import { prisma } from "@/lib/prisma";
 import { formatMad } from "@/lib/utils";
-import { sampleProducts } from "@/lib/catalog";
+import { getProducts, sampleProducts } from "@/lib/catalog";
+import { getFirestoreOrders } from "@/lib/firestore-store";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminDashboard() {
-  const [totalOrders, pending, revenueAgg, activeProducts, recentOrders] = await Promise.all([
-    prisma.order.count(),
-    prisma.order.count({ where: { status: "pending" } }),
-    prisma.order.aggregate({ _sum: { totalPrice: true }, where: { status: { not: "cancelled" } } }),
-    prisma.product.count({ where: { inStock: true } }),
-    prisma.order.findMany({ take: 6, orderBy: { createdAt: "desc" } })
-  ]).catch((error) => {
-    console.error("Admin dashboard DB unavailable:", error);
-    return [0, 0, { _sum: { totalPrice: 0 } }, sampleProducts.length, []] as const;
-  });
-  const stats = [
-    ["Total orders", totalOrders.toString()],
-    ["Pending", pending.toString()],
-    ["Revenue", formatMad(revenueAgg._sum.totalPrice ?? 0)],
-    ["Active products", activeProducts.toString()]
-  ];
+  const firestoreOrders = await getFirestoreOrders().catch(() => null);
+  const products = await getProducts().catch(() => sampleProducts);
 
+  if (firestoreOrders) {
+    const totalOrders = firestoreOrders.length;
+    const pending = firestoreOrders.filter((order) => order.status === "pending").length;
+    const revenue = firestoreOrders
+      .filter((order) => order.status !== "cancelled")
+      .reduce((sum, order) => sum + order.totalPrice, 0);
+    const recentOrders = firestoreOrders.slice(0, 6);
+    const stats = [
+      ["Total orders", totalOrders.toString()],
+      ["Pending", pending.toString()],
+      ["Revenue", formatMad(revenue)],
+      ["Active products", products.filter((product) => product.inStock).length.toString()]
+    ];
+
+    return <DashboardView stats={stats} recentOrders={recentOrders} />;
+  }
+
+  try {
+    const [totalOrders, pending, revenueAgg, activeProducts, recentOrders] = await Promise.all([
+      prisma.order.count(),
+      prisma.order.count({ where: { status: "pending" } }),
+      prisma.order.aggregate({ _sum: { totalPrice: true }, where: { status: { not: "cancelled" } } }),
+      prisma.product.count({ where: { inStock: true } }),
+      prisma.order.findMany({ take: 6, orderBy: { createdAt: "desc" } })
+    ]);
+    const stats = [
+      ["Total orders", totalOrders.toString()],
+      ["Pending", pending.toString()],
+      ["Revenue", formatMad(revenueAgg._sum.totalPrice ?? 0)],
+      ["Active products", activeProducts.toString()]
+    ];
+
+    return <DashboardView stats={stats} recentOrders={recentOrders} />;
+  } catch (error) {
+    console.error("Admin dashboard DB unavailable:", error);
+  }
+
+  return <DashboardView stats={[
+    ["Total orders", "0"],
+    ["Pending", "0"],
+    ["Revenue", formatMad(0)],
+    ["Active products", sampleProducts.length.toString()]
+  ]} recentOrders={[]} />;
+}
+
+function DashboardView({
+  stats,
+  recentOrders
+}: {
+  stats: string[][];
+  recentOrders: Array<{ id: string; customerName: string; productName: string; totalPrice: number; status: string }>;
+}) {
   return (
     <div>
       <h1 className="font-space text-4xl font-black">Dashboard</h1>

@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
 import { orderSchema, statusSchema } from "@/lib/validation";
 import { sampleProducts, type StoreProduct } from "@/lib/catalog";
+import { createFirestoreOrder, getFirestoreOrders, updateFirestoreOrderStatus } from "@/lib/firestore-store";
 
 function whatsappUrl(message: string) {
   const number = process.env.WHATSAPP_NUMBER ?? "212600000000";
@@ -17,6 +18,8 @@ export async function GET(request: Request) {
   const status = url.searchParams.get("status");
   const parsedStatus = status ? statusSchema.safeParse({ status }) : null;
   if (status && !parsedStatus?.success) return NextResponse.json({ error: "Invalid status" }, { status: 400 });
+  const firestoreOrders = await getFirestoreOrders(parsedStatus?.success ? parsedStatus.data.status : undefined);
+  if (firestoreOrders) return NextResponse.json(firestoreOrders);
   const orders = await prisma.order.findMany({
     where: parsedStatus?.success ? { status: parsedStatus.data.status } : undefined,
     orderBy: { createdAt: "desc" },
@@ -45,9 +48,9 @@ export async function POST(request: Request) {
     productPrice: product.price,
     totalPrice
   };
-  let order = null;
+  let order: unknown = await createFirestoreOrder({ ...orderData, status: "pending", notes: orderData.notes ?? null });
   try {
-    order = await prisma.order.create({ data: orderData });
+    order ??= await prisma.order.create({ data: orderData });
   } catch (error) {
     console.error("Order was not saved, continuing to WhatsApp:", error);
   }
@@ -73,6 +76,8 @@ export async function PUT(request: Request) {
   if (!body.id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
   const parsed = statusSchema.safeParse({ status: body.status });
   if (!parsed.success) return NextResponse.json({ error: "Invalid status" }, { status: 400 });
+  const firestoreOrder = await updateFirestoreOrderStatus(body.id, parsed.data.status);
+  if (firestoreOrder) return NextResponse.json(firestoreOrder);
   const order = await prisma.order.update({ where: { id: body.id }, data: { status: parsed.data.status } });
   return NextResponse.json(order);
 }

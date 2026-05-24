@@ -3,15 +3,13 @@
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useTransition } from "react";
-import type { Order, Product } from "@prisma/client";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { formatMad } from "@/lib/utils";
 import { orderStatuses, type OrderStatus } from "@/lib/status";
+import type { StoreOrder } from "@/lib/firestore-store";
 
-type OrderWithProduct = Order & { product: Product };
-
-export function OrdersManager({ orders, activeStatus }: { orders: OrderWithProduct[]; activeStatus?: OrderStatus }) {
+export function OrdersManager({ orders, activeStatus }: { orders: StoreOrder[]; activeStatus?: OrderStatus }) {
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
 

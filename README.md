@@ -26,6 +26,10 @@ NEXTAUTH_SECRET="replace-with-a-long-random-secret"
 NEXTAUTH_URL="http://localhost:3000"
 WHATSAPP_NUMBER="212600000000"
 ADMIN_EMAIL="admin@splatt.ma"
+ADMIN_PASSWORD="changeme123"
+FIREBASE_PROJECT_ID=""
+FIREBASE_CLIENT_EMAIL=""
+FIREBASE_PRIVATE_KEY=""
 ```
 
 3. Run the database migration:

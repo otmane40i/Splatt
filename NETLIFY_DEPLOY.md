@@ -28,13 +28,35 @@ NEXTAUTH_URL=https://your-netlify-site-name.netlify.app
 WHATSAPP_NUMBER=212600000000
 ADMIN_EMAIL=admin@splatt.ma
 ADMIN_PASSWORD=changeme123
+FIREBASE_PROJECT_ID=your-firebase-project-id
+FIREBASE_CLIENT_EMAIL=firebase-adminsdk-xxxxx@your-project.iam.gserviceaccount.com
+FIREBASE_PRIVATE_KEY=-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n
 ```
+
+## Firebase / Firestore Storage
+
+This app can store products and orders in Cloud Firestore when the Firebase variables above are configured.
+
+Create them in Firebase:
+
+1. Open Firebase Console.
+2. Create/select a project.
+3. Go to **Build -> Firestore Database** and create a database.
+4. Go to **Project settings -> Service accounts**.
+5. Generate a new private key.
+6. Copy values from the downloaded JSON into Netlify environment variables:
+
+```txt
+project_id -> FIREBASE_PROJECT_ID
+client_email -> FIREBASE_CLIENT_EMAIL
+private_key -> FIREBASE_PRIVATE_KEY
+```
+
+For `FIREBASE_PRIVATE_KEY`, keep the whole key and replace line breaks with `\n` if Netlify stores it as one line.
 
 ## Important Production Note
 
-The current project uses Prisma with SQLite. SQLite is fine locally, but Netlify serverless functions do not provide a normal persistent writable filesystem for production database writes. That means admin product edits and customer orders need a production database before launch.
-
-For a real live store on Netlify, switch `DATABASE_URL` to a hosted database and update Prisma accordingly, or use another persistent storage service. Otherwise, the public static pages may deploy, but admin changes/orders will not be reliable in production.
+The project still keeps Prisma/SQLite for local development fallback. On Netlify, use Firebase env vars for persistent admin product changes and customer orders.
 
 ## Local Admin
 

@@ -2,7 +2,6 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import type { Product } from "@prisma/client";
 import { Edit, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -11,8 +10,9 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { formatMad, slugify } from "@/lib/utils";
+import type { StoreProduct } from "@/lib/catalog";
 
-type ProductDraft = Omit<Product, "id" | "createdAt" | "updatedAt"> & { id?: string };
+type ProductDraft = Omit<StoreProduct, "id" | "createdAt" | "updatedAt"> & { id?: string };
 
 const blankProduct: ProductDraft = {
   slug: "",
@@ -27,7 +27,7 @@ const blankProduct: ProductDraft = {
   featured: false
 };
 
-export function ProductsManager({ products }: { products: Product[] }) {
+export function ProductsManager({ products }: { products: StoreProduct[] }) {
   const [draft, setDraft] = useState<ProductDraft | null>(null);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();

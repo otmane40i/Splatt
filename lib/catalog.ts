@@ -86,6 +86,16 @@ export const sampleProducts: StoreProduct[] = [
 
 export async function getProducts(category?: string) {
   try {
+    const { getFirestoreProducts } = await import("@/lib/firestore-store");
+    const firestoreProducts = await getFirestoreProducts();
+    if (firestoreProducts?.length) {
+      return category ? firestoreProducts.filter((product) => product.category === category) : firestoreProducts;
+    }
+  } catch (error) {
+    console.error("Firestore products unavailable:", error);
+  }
+
+  try {
     const prisma = await getPrisma();
     return await prisma.product.findMany({
       where: category ? { category } : undefined,
@@ -98,6 +108,13 @@ export async function getProducts(category?: string) {
 }
 
 export async function getFeaturedProducts() {
+  try {
+    const products = await getProducts();
+    return products.filter((product) => product.featured && product.inStock).slice(0, 4);
+  } catch (error) {
+    console.error("Product list unavailable, using static featured products:", error);
+  }
+
   try {
     const prisma = await getPrisma();
     return await prisma.product.findMany({
@@ -112,6 +129,14 @@ export async function getFeaturedProducts() {
 }
 
 export async function getProductBySlug(slug: string) {
+  try {
+    const { getFirestoreProductBySlug } = await import("@/lib/firestore-store");
+    const product = await getFirestoreProductBySlug(slug);
+    if (product) return product;
+  } catch (error) {
+    console.error("Firestore product unavailable:", error);
+  }
+
   try {
     const prisma = await getPrisma();
     const product = await prisma.product.findUnique({ where: { slug } });
