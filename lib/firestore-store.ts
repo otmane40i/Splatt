@@ -37,7 +37,7 @@ function productFromDoc(id: string, data: FirebaseFirestore.DocumentData): Store
     descFR: String(data.descFR ?? ""),
     price: Number(data.price ?? 0),
     image: String(data.image ?? "/products/bear.svg"),
-    model3d: typeof data.model3d === "string" && data.model3d.length > 0 ? data.model3d : id === "splatt-bear" || data.slug === "splatt-bear" ? "/products/bear.stl" : null,
+    model3d: typeof data.model3d === "string" && data.model3d.length > 0 ? data.model3d : null,
     category: String(data.category ?? "Figures"),
     inStock: Boolean(data.inStock ?? true),
     featured: Boolean(data.featured ?? false),

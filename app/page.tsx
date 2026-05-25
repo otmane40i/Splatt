@@ -47,9 +47,15 @@ export default async function HomePage() {
             <Button asChild variant="outline"><Link href="/shop">All kits</Link></Button>
           </div>
         </Reveal>
-        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-          {products.map((product) => <ProductCard key={product.id} product={product} />)}
-        </div>
+        {products.length > 0 ? (
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            {products.map((product) => <ProductCard key={product.id} product={product} />)}
+          </div>
+        ) : (
+          <div className="glass p-8 text-center text-white/60">
+            The first SPLATT. drop is being prepared.
+          </div>
+        )}
       </section>
       <section className="border-y border-white/10 bg-white/[0.02] py-20">
         <div className="container-page">

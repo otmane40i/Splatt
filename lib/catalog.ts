@@ -90,15 +90,21 @@ export const sampleProducts: StoreProduct[] = [
 ];
 
 export async function getProducts(category?: string) {
+  const { isFirebaseConfigured } = await import("@/lib/firebase");
+  const firebaseConfigured = isFirebaseConfigured();
+
   try {
     const { getFirestoreProducts } = await import("@/lib/firestore-store");
     const firestoreProducts = await getFirestoreProducts();
-    if (firestoreProducts?.length) {
+    if (firestoreProducts) {
       return category ? firestoreProducts.filter((product) => product.category === category) : firestoreProducts;
     }
   } catch (error) {
     console.error("Firestore products unavailable:", error);
+    if (firebaseConfigured) return [];
   }
+
+  if (firebaseConfigured) return [];
 
   try {
     const prisma = await getPrisma();
@@ -134,13 +140,19 @@ export async function getFeaturedProducts() {
 }
 
 export async function getProductBySlug(slug: string) {
+  const { isFirebaseConfigured } = await import("@/lib/firebase");
+  const firebaseConfigured = isFirebaseConfigured();
+
   try {
     const { getFirestoreProductBySlug } = await import("@/lib/firestore-store");
     const product = await getFirestoreProductBySlug(slug);
     if (product) return product;
   } catch (error) {
     console.error("Firestore product unavailable:", error);
+    if (firebaseConfigured) return null;
   }
+
+  if (firebaseConfigured) return null;
 
   try {
     const prisma = await getPrisma();

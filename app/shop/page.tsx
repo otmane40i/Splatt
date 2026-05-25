@@ -22,9 +22,15 @@ export default async function ShopPage({
         <h1 className="font-space text-5xl font-black">DIY figures</h1>
       </div>
       <ShopFilters categories={categories} active={searchParams.category} />
-      <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-        {products.map((product) => <ProductCard key={product.id} product={product} />)}
-      </div>
+      {products.length > 0 ? (
+        <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+          {products.map((product) => <ProductCard key={product.id} product={product} />)}
+        </div>
+      ) : (
+        <div className="glass mt-8 p-8 text-center text-white/60">
+          No products yet. Add your first figurine from the admin panel.
+        </div>
+      )}
     </main>
   );
 }
