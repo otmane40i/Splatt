@@ -167,6 +167,10 @@
         gap: 12px;
       }
 
+      .hidden {
+        display: none !important;
+      }
+
       button:not(.swatch),
       a.button {
         min-height: 48px;
@@ -267,6 +271,7 @@
 
           <div class="actions">
             <button type="button" id="pour">Pour the paint</button>
+            <button type="button" id="tryAgain" class="hidden">Try again</button>
             <a class="button" id="whatsapp" href="#" target="_blank" rel="noreferrer">Order on WhatsApp</a>
           </div>
         </section>
@@ -303,6 +308,7 @@
       const paintContext = paintCanvas.getContext("2d");
       const palette = document.getElementById("palette");
       const pourButton = document.getElementById("pour");
+      const tryAgainButton = document.getElementById("tryAgain");
       const resetViewButton = document.getElementById("resetView");
       const whatsapp = document.getElementById("whatsapp");
 
@@ -318,8 +324,8 @@
 
       const material = new THREE.MeshStandardMaterial({
         color: selectedColor,
-        roughness: 0.52,
-        metalness: 0.03
+        roughness: 0.34,
+        metalness: 0.04
       });
 
       scene.add(new THREE.AmbientLight(0xffffff, 1.9));
@@ -365,6 +371,158 @@
         whatsapp.href = `https://wa.me/212XXXXXXXXX?text=${encodeURIComponent(message)}`;
       }
 
+      function addProjectedUvs(geometry) {
+        geometry.computeBoundingBox();
+        const box = geometry.boundingBox;
+        const positions = geometry.attributes.position;
+        const width = Math.max(0.001, box.max.x - box.min.x);
+        const height = Math.max(0.001, box.max.z - box.min.z);
+        const uvs = new Float32Array(positions.count * 2);
+
+        for (let index = 0; index < positions.count; index += 1) {
+          const x = positions.getX(index);
+          const z = positions.getZ(index);
+          uvs[index * 2] = THREE.MathUtils.clamp((x - box.min.x) / width, 0, 1);
+          uvs[index * 2 + 1] = THREE.MathUtils.clamp((z - box.min.z) / height, 0, 1);
+        }
+
+        geometry.setAttribute("uv", new THREE.BufferAttribute(uvs, 2));
+      }
+
+      function pickPaintColors() {
+        const pool = colors.filter((color) => color !== "#222222" && color !== "#F0F0F0" && color !== selectedColor);
+        const picked = [selectedColor];
+        while (picked.length < 4 && pool.length > 0) {
+          const index = Math.floor(Math.random() * pool.length);
+          picked.push(pool.splice(index, 1)[0]);
+        }
+        return picked;
+      }
+
+      function randomBetween(min, max) {
+        return min + Math.random() * (max - min);
+      }
+
+      function drawStream(context, color, startX, width, height) {
+        const points = [];
+        const segments = 10 + Math.floor(Math.random() * 7);
+        const streamHeight = randomBetween(height * 0.52, height * 1.12);
+        let x = startX;
+
+        for (let index = 0; index <= segments; index += 1) {
+          const y = (streamHeight / segments) * index - height * 0.08;
+          x += randomBetween(-width * 0.055, width * 0.055);
+          points.push({ x, y });
+        }
+
+        const streamWidth = randomBetween(width * 0.035, width * 0.105);
+        context.save();
+        context.lineCap = "round";
+        context.lineJoin = "round";
+        context.shadowColor = color;
+        context.shadowBlur = 18;
+        context.strokeStyle = color;
+        context.lineWidth = streamWidth;
+        context.beginPath();
+        context.moveTo(points[0].x, points[0].y);
+        for (let index = 1; index < points.length; index += 1) {
+          const previous = points[index - 1];
+          const current = points[index];
+          context.quadraticCurveTo(previous.x, previous.y, (previous.x + current.x) / 2, (previous.y + current.y) / 2);
+        }
+        context.stroke();
+
+        for (let index = 2; index < points.length; index += 3) {
+          const point = points[index];
+          const dripLength = randomBetween(height * 0.04, height * 0.16);
+          context.lineWidth = streamWidth * randomBetween(0.22, 0.48);
+          context.beginPath();
+          context.moveTo(point.x + randomBetween(-streamWidth, streamWidth), point.y);
+          context.lineTo(point.x + randomBetween(-streamWidth, streamWidth), point.y + dripLength);
+          context.stroke();
+          context.beginPath();
+          context.arc(point.x, point.y + dripLength, streamWidth * randomBetween(0.18, 0.34), 0, Math.PI * 2);
+          context.fillStyle = color;
+          context.fill();
+        }
+        context.restore();
+      }
+
+      function generatePourTexture() {
+        const canvas = document.createElement("canvas");
+        canvas.width = 1024;
+        canvas.height = 1024;
+        const context = canvas.getContext("2d");
+        if (!context) return null;
+
+        const paintColors = pickPaintColors();
+        context.fillStyle = "#f8f7f1";
+        context.fillRect(0, 0, canvas.width, canvas.height);
+
+        const baseGradient = context.createLinearGradient(0, 0, canvas.width, canvas.height);
+        baseGradient.addColorStop(0, paintColors[0]);
+        baseGradient.addColorStop(0.45, paintColors[1] || paintColors[0]);
+        baseGradient.addColorStop(1, paintColors[2] || paintColors[0]);
+        context.globalAlpha = 0.9;
+        context.fillStyle = baseGradient;
+        context.fillRect(0, 0, canvas.width, canvas.height);
+        context.globalAlpha = 1;
+
+        context.filter = "blur(14px)";
+        for (let index = 0; index < 18; index += 1) {
+          drawStream(
+            context,
+            paintColors[Math.floor(Math.random() * paintColors.length)],
+            randomBetween(canvas.width * -0.08, canvas.width * 1.08),
+            canvas.width,
+            canvas.height
+          );
+        }
+
+        context.filter = "none";
+        for (let index = 0; index < 24; index += 1) {
+          drawStream(
+            context,
+            paintColors[Math.floor(Math.random() * paintColors.length)],
+            randomBetween(canvas.width * -0.06, canvas.width * 1.06),
+            canvas.width,
+            canvas.height
+          );
+        }
+
+        context.globalAlpha = 0.28;
+        context.strokeStyle = "#ffffff";
+        context.lineCap = "round";
+        for (let index = 0; index < 18; index += 1) {
+          context.lineWidth = randomBetween(2, 8);
+          const x = randomBetween(canvas.width * 0.08, canvas.width * 0.92);
+          const y = randomBetween(canvas.height * 0.08, canvas.height * 0.82);
+          context.beginPath();
+          context.moveTo(x, y);
+          context.quadraticCurveTo(x + randomBetween(-35, 35), y + randomBetween(28, 110), x + randomBetween(-45, 45), y + randomBetween(90, 210));
+          context.stroke();
+        }
+        context.globalAlpha = 1;
+
+        const texture = new THREE.CanvasTexture(canvas);
+        texture.colorSpace = THREE.SRGBColorSpace;
+        texture.wrapS = THREE.RepeatWrapping;
+        texture.wrapT = THREE.ClampToEdgeWrapping;
+        texture.needsUpdate = true;
+        return texture;
+      }
+
+      function applyPourTexture() {
+        const texture = generatePourTexture();
+        if (!texture) return;
+        if (material.map) material.map.dispose();
+        material.map = texture;
+        material.color.set("#ffffff");
+        material.roughness = 0.24;
+        material.needsUpdate = true;
+        tryAgainButton.classList.remove("hidden");
+      }
+
       function resize() {
         const rect = viewer.getBoundingClientRect();
         renderer.setSize(rect.width, rect.height);
@@ -399,6 +557,7 @@
         "/products/bear.stl",
         (geometry) => {
           geometry.computeVertexNormals();
+          addProjectedUvs(geometry);
           bear = new THREE.Mesh(geometry, material);
           bear.castShadow = true;
           bear.receiveShadow = true;
@@ -428,6 +587,7 @@
       const particles = [];
 
       function pourPaint() {
+        if (bear) applyPourTexture();
         const rect = viewer.getBoundingClientRect();
         for (let index = 0; index < 140; index += 1) {
           particles.push({
@@ -443,6 +603,7 @@
       }
 
       pourButton.addEventListener("click", pourPaint);
+      tryAgainButton.addEventListener("click", pourPaint);
       resetViewButton.addEventListener("click", resetView);
       controls.addEventListener("start", stopIntroFloat);
       window.addEventListener("resize", resize);
