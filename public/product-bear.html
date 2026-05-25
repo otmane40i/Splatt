@@ -393,10 +393,46 @@
         return min + Math.random() * (max - min);
       }
 
+      function drawPaintSheet(context, color, startX, width, height) {
+        const sheetWidth = randomBetween(width * 0.14, width * 0.28);
+        const segments = 12;
+        const left = [];
+        const right = [];
+        let drift = randomBetween(-width * 0.04, width * 0.04);
+
+        for (let index = 0; index <= segments; index += 1) {
+          const y = (height / segments) * index - height * 0.08;
+          drift += randomBetween(-width * 0.025, width * 0.025);
+          const wave = Math.sin(index * 0.9 + Math.random()) * width * 0.018;
+          left.push({ x: startX + drift + wave, y });
+          right.push({ x: startX + sheetWidth + drift - wave + randomBetween(-width * 0.018, width * 0.018), y });
+        }
+
+        context.save();
+        context.fillStyle = color;
+        context.shadowColor = color;
+        context.shadowBlur = 8;
+        context.beginPath();
+        context.moveTo(left[0].x, left[0].y);
+        for (let index = 1; index < left.length; index += 1) {
+          const previous = left[index - 1];
+          const current = left[index];
+          context.quadraticCurveTo(previous.x, previous.y, (previous.x + current.x) / 2, (previous.y + current.y) / 2);
+        }
+        for (let index = right.length - 1; index > 0; index -= 1) {
+          const previous = right[index];
+          const current = right[index - 1];
+          context.quadraticCurveTo(previous.x, previous.y, (previous.x + current.x) / 2, (previous.y + current.y) / 2);
+        }
+        context.closePath();
+        context.fill();
+        context.restore();
+      }
+
       function drawStream(context, color, startX, width, height) {
         const points = [];
-        const segments = 8 + Math.floor(Math.random() * 6);
-        const streamHeight = randomBetween(height * 0.48, height * 1.04);
+        const segments = 9 + Math.floor(Math.random() * 6);
+        const streamHeight = randomBetween(height * 0.64, height * 1.16);
         let x = startX;
 
         for (let index = 0; index <= segments; index += 1) {
@@ -405,7 +441,7 @@
           points.push({ x, y });
         }
 
-        const streamWidth = randomBetween(width * 0.028, width * 0.082);
+        const streamWidth = randomBetween(width * 0.036, width * 0.115);
         context.save();
         context.globalCompositeOperation = "source-over";
         context.lineCap = "round";
@@ -471,13 +507,25 @@
         context.fillStyle = "#ffffff";
         context.fillRect(0, 0, canvas.width, canvas.height);
 
-        context.globalAlpha = 0.22;
-        context.filter = "blur(8px)";
-        for (let index = 0; index < 10; index += 1) {
+        context.globalAlpha = 0.92;
+        context.filter = "none";
+        for (let index = 0; index < 9; index += 1) {
+          drawPaintSheet(
+            context,
+            paintColors[Math.floor(Math.random() * paintColors.length)],
+            randomBetween(canvas.width * -0.12, canvas.width * 0.96),
+            canvas.width,
+            canvas.height
+          );
+        }
+
+        context.globalAlpha = 0.45;
+        context.filter = "blur(6px)";
+        for (let index = 0; index < 18; index += 1) {
           drawStream(
             context,
             paintColors[Math.floor(Math.random() * paintColors.length)],
-            randomBetween(canvas.width * -0.08, canvas.width * 1.08),
+            randomBetween(canvas.width * -0.12, canvas.width * 1.12),
             canvas.width,
             canvas.height
           );
@@ -485,17 +533,17 @@
 
         context.globalAlpha = 1;
         context.filter = "none";
-        for (let index = 0; index < 30; index += 1) {
+        for (let index = 0; index < 44; index += 1) {
           drawStream(
             context,
             paintColors[Math.floor(Math.random() * paintColors.length)],
-            randomBetween(canvas.width * -0.06, canvas.width * 1.06),
+            randomBetween(canvas.width * -0.1, canvas.width * 1.1),
             canvas.width,
             canvas.height
           );
         }
 
-        for (let index = 0; index < 22; index += 1) {
+        for (let index = 0; index < 28; index += 1) {
           drawHighlight(context, randomBetween(canvas.width * 0.06, canvas.width * 0.94), canvas.width, canvas.height);
         }
 
