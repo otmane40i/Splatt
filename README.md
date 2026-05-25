@@ -30,6 +30,7 @@ ADMIN_PASSWORD="changeme123"
 FIREBASE_PROJECT_ID=""
 FIREBASE_CLIENT_EMAIL=""
 FIREBASE_PRIVATE_KEY=""
+FIREBASE_STORAGE_BUCKET=""
 ```
 
 3. Run the database migration:
@@ -58,7 +59,7 @@ Seed admin password: `changeme123`
 
 ## Notes
 
-- Product uploads are saved to `public/products/`.
+- Product uploads use Firebase Storage when `FIREBASE_STORAGE_BUCKET` is set, with `public/products/` as a local fallback.
 - Public orders are saved to SQLite before the customer is sent to WhatsApp.
 - Admin routes are protected by NextAuth middleware.
 - If Prisma on your local machine fails to create the SQLite file automatically, run `touch prisma/dev.db` once, then rerun `npx prisma migrate dev`.

@@ -180,6 +180,15 @@ function generatePourTexture(selectedColors: string[]) {
   return texture;
 }
 
+function modelExtension(modelPath: string) {
+  try {
+    const parsed = new URL(modelPath);
+    return decodeURIComponent(parsed.pathname).split(".").pop()?.toLowerCase() ?? "";
+  } catch {
+    return modelPath.split("?")[0]?.split(".").pop()?.toLowerCase() ?? "";
+  }
+}
+
 type ViewerState = {
   material: THREE.MeshStandardMaterial;
   controls: OrbitControls;
@@ -251,7 +260,7 @@ export function ProductCustomizer({ product }: { product: StoreProduct }) {
       const box = new THREE.Box3().setFromObject(object);
       const center = box.getCenter(new THREE.Vector3());
       const size = box.getSize(new THREE.Vector3()).length();
-      const scale = 4.6 / Math.max(size, 0.001);
+      const scale = 3.35 / Math.max(size, 0.001);
       object.scale.setScalar(scale);
       object.position.set(-center.x * scale, -center.y * scale, -center.z * scale);
     }
@@ -273,7 +282,7 @@ export function ProductCustomizer({ product }: { product: StoreProduct }) {
 
     async function loadModel() {
       const path = product.model3d ?? "";
-      const extension = path.split(".").pop()?.toLowerCase();
+      const extension = modelExtension(path);
       if (extension === "obj") {
         const object = await new OBJLoader().loadAsync(path);
         object.traverse((child) => {

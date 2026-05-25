@@ -31,20 +31,22 @@ ADMIN_PASSWORD=changeme123
 FIREBASE_PROJECT_ID=your-firebase-project-id
 FIREBASE_CLIENT_EMAIL=firebase-adminsdk-xxxxx@your-project.iam.gserviceaccount.com
 FIREBASE_PRIVATE_KEY=-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n
+FIREBASE_STORAGE_BUCKET=your-project-id.appspot.com
 ```
 
-## Firebase / Firestore Storage
+## Firebase / Firestore + Storage
 
-This app can store products and orders in Cloud Firestore when the Firebase variables above are configured.
+This app can store products and orders in Cloud Firestore when the Firebase variables above are configured. Product images and 3D model uploads use Firebase Storage when `FIREBASE_STORAGE_BUCKET` is configured.
 
 Create them in Firebase:
 
 1. Open Firebase Console.
 2. Create/select a project.
 3. Go to **Build -> Firestore Database** and create a database.
-4. Go to **Project settings -> Service accounts**.
-5. Generate a new private key.
-6. Copy values from the downloaded JSON into Netlify environment variables:
+4. Go to **Build -> Storage** and create a storage bucket.
+5. Go to **Project settings -> Service accounts**.
+6. Generate a new private key.
+7. Copy values from the downloaded JSON into Netlify environment variables:
 
 ```txt
 project_id -> FIREBASE_PROJECT_ID
@@ -53,6 +55,8 @@ private_key -> FIREBASE_PRIVATE_KEY
 ```
 
 For `FIREBASE_PRIVATE_KEY`, keep the whole key and replace line breaks with `\n` if Netlify stores it as one line.
+
+Use the Firebase Storage bucket name for `FIREBASE_STORAGE_BUCKET`, usually something like `your-project-id.appspot.com`.
 
 ## Important Production Note
 
