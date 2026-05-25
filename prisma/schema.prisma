@@ -24,6 +24,7 @@ model Product {
   descFR    String
   price     Int
   image     String
+  model3d   String?
   category  String
   inStock   Boolean  @default(true)
   featured  Boolean  @default(false)

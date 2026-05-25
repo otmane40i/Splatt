@@ -16,7 +16,7 @@ type OrderResponse = {
   whatsappUrl: string;
 };
 
-export function OrderModal({ product }: { product: StoreProduct }) {
+export function OrderModal({ product, customizationNote = "" }: { product: StoreProduct; customizationNote?: string }) {
   const [quantity, setQuantity] = useState(1);
   const [open, setOpen] = useState(false);
   const [error, setError] = useState("");
@@ -27,6 +27,8 @@ export function OrderModal({ product }: { product: StoreProduct }) {
   function submit(formData: FormData) {
     setError("");
     startTransition(async () => {
+      const formNotes = String(formData.get("notes") ?? "").trim();
+      const notes = [customizationNote, formNotes].filter(Boolean).join("\n\n");
       const response = await fetch("/api/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -35,7 +37,7 @@ export function OrderModal({ product }: { product: StoreProduct }) {
           customerPhone: formData.get("customerPhone"),
           customerCity: formData.get("customerCity"),
           customerAddress: formData.get("customerAddress"),
-          notes: formData.get("notes"),
+          notes,
           productId: product.id,
           quantity
         })

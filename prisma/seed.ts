@@ -22,6 +22,7 @@ async function main() {
       descFR: "Le kit bear classique avec trois peintures vibrantes et tout ce qu'il faut pour ton premier pour.",
       price: 350,
       image: "/products/bear.svg",
+      model3d: "/products/bear.stl",
       category: "Figures",
       featured: true
     },
@@ -33,6 +34,7 @@ async function main() {
       descFR: "Une figurine pup compacte aux formes fun, parfaite pour des coulures propres et un display bureau.",
       price: 300,
       image: "/products/pup.svg",
+      model3d: null,
       category: "Figures",
       featured: true
     },
@@ -44,6 +46,7 @@ async function main() {
       descFR: "Une silhouette plus large avec plus de surface pour un effet paint-pour dramatique.",
       price: 450,
       image: "/products/phantom.svg",
+      model3d: null,
       category: "Premium",
       featured: true
     },
@@ -55,6 +58,7 @@ async function main() {
       descFR: "Une figurine premium inspiree par l'artisanat marocain, la couleur streetwear et la culture collectible.",
       price: 500,
       image: "/products/atlas.svg",
+      model3d: null,
       category: "Premium",
       featured: true
     }

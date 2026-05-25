@@ -22,6 +22,7 @@ const blankProduct: ProductDraft = {
   descFR: "",
   price: 300,
   image: "/products/bear.svg",
+  model3d: null,
   category: "Figures",
   inStock: true,
   featured: false
@@ -57,13 +58,13 @@ export function ProductsManager({ products }: { products: StoreProduct[] }) {
     });
   }
 
-  async function upload(file: File) {
+  async function upload(file: File, field: "image" | "model3d") {
     const data = new FormData();
     data.append("file", file);
     const response = await fetch("/api/upload", { method: "POST", body: data });
     if (!response.ok) return;
     const result = (await response.json()) as { path: string };
-    setDraft((value) => value ? { ...value, image: result.path } : value);
+    setDraft((value) => value ? { ...value, [field]: result.path } : value);
   }
 
   return (
@@ -73,13 +74,14 @@ export function ProductsManager({ products }: { products: StoreProduct[] }) {
         <Button onClick={() => setDraft(blankProduct)}><Plus className="h-4 w-4" />Add</Button>
       </div>
       <div className="glass mt-6 overflow-x-auto">
-        <table className="w-full min-w-[760px] text-left text-sm">
+        <table className="w-full min-w-[840px] text-left text-sm">
           <thead className="border-b border-white/10 text-white/50">
             <tr>
               <th className="p-4">Name</th>
               <th className="p-4">Slug</th>
               <th className="p-4">Price</th>
               <th className="p-4">Category</th>
+              <th className="p-4">3D</th>
               <th className="p-4">Stock</th>
               <th className="p-4 text-right">Actions</th>
             </tr>
@@ -91,6 +93,7 @@ export function ProductsManager({ products }: { products: StoreProduct[] }) {
                 <td className="p-4 text-white/60">{product.slug}</td>
                 <td className="p-4">{formatMad(product.price)}</td>
                 <td className="p-4">{product.category}</td>
+                <td className="p-4">{product.model3d ? "Yes" : "No"}</td>
                 <td className="p-4">{product.inStock ? "Yes" : "No"}</td>
                 <td className="p-4">
                   <div className="flex justify-end gap-2">
@@ -114,9 +117,14 @@ export function ProductsManager({ products }: { products: StoreProduct[] }) {
               <Field label="Category" value={draft.category} onChange={(value) => setDraft({ ...draft, category: value })} />
               <Field label="Price" type="number" value={String(draft.price)} onChange={(value) => setDraft({ ...draft, price: Number(value) })} />
               <Field label="Image path" value={draft.image} onChange={(value) => setDraft({ ...draft, image: value })} />
+              <Field label="3D model path" value={draft.model3d ?? ""} onChange={(value) => setDraft({ ...draft, model3d: value || null })} />
               <div className="grid gap-2 md:col-span-2">
                 <Label htmlFor="upload">Upload image</Label>
-                <Input id="upload" type="file" accept="image/*" onChange={(event) => event.target.files?.[0] ? upload(event.target.files[0]) : undefined} />
+                <Input id="upload" type="file" accept="image/*" onChange={(event) => event.target.files?.[0] ? upload(event.target.files[0], "image") : undefined} />
+              </div>
+              <div className="grid gap-2 md:col-span-2">
+                <Label htmlFor="model-upload">Upload 3D model</Label>
+                <Input id="model-upload" type="file" accept=".stl,.obj" onChange={(event) => event.target.files?.[0] ? upload(event.target.files[0], "model3d") : undefined} />
               </div>
               <Area label="Description EN" value={draft.descEN} onChange={(value) => setDraft({ ...draft, descEN: value })} />
               <Area label="Description FR" value={draft.descFR} onChange={(value) => setDraft({ ...draft, descFR: value })} />

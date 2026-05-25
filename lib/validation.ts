@@ -9,6 +9,7 @@ export const productSchema = z.object({
   descFR: z.string().min(8),
   price: z.coerce.number().int().positive(),
   image: z.string().min(1),
+  model3d: z.string().optional().nullable(),
   category: z.string().min(2),
   inStock: z.coerce.boolean(),
   featured: z.coerce.boolean()
