@@ -79,6 +79,7 @@
           linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.015)),
           #050505;
         box-shadow: 0 0 70px rgba(255, 46, 147, 0.16);
+        touch-action: none;
       }
 
       .viewer-wrap canvas {
@@ -195,19 +196,20 @@
       .viewer-tools {
         position: absolute;
         left: 16px;
-        top: 16px;
-        z-index: 4;
+        bottom: 16px;
+        z-index: 20;
         display: flex;
         flex-wrap: wrap;
         gap: 8px;
+        pointer-events: auto;
       }
 
       .viewer-tools button {
-        min-height: 38px;
-        padding: 0 14px;
+        min-height: 42px;
+        padding: 0 16px;
         border: 1px solid rgba(255, 255, 255, 0.14);
-        background: rgba(255, 255, 255, 0.07);
-        box-shadow: none;
+        background: rgba(255, 255, 255, 0.11);
+        box-shadow: 0 12px 34px rgba(0, 0, 0, 0.32);
         backdrop-filter: blur(14px);
       }
 
@@ -323,8 +325,7 @@
       scene.add(directionalLight);
 
       const controls = new OrbitControls(camera, renderer.domElement);
-      controls.enableDamping = true;
-      controls.dampingFactor = 0.12;
+      controls.enableDamping = false;
       controls.autoRotate = false;
       controls.enablePan = true;
       controls.panSpeed = 0.85;
@@ -333,6 +334,12 @@
       controls.minDistance = 1.8;
       controls.maxDistance = 12;
       controls.screenSpacePanning = true;
+
+      function resetView() {
+        camera.position.set(0, 1.1, 6);
+        controls.target.set(0, 0, 0);
+        controls.update();
+      }
 
       function updateWhatsapp() {
         const message = `Salam SPLATT., I want to order Splatt. Bear with selected color ${selectedColor}.`;
@@ -417,11 +424,7 @@
       }
 
       pourButton.addEventListener("click", pourPaint);
-      resetViewButton.addEventListener("click", () => {
-        camera.position.set(0, 1.1, 6);
-        controls.target.set(0, 0, 0);
-        controls.update();
-      });
+      resetViewButton.addEventListener("click", resetView);
       window.addEventListener("resize", resize);
       updateWhatsapp();
       resize();
