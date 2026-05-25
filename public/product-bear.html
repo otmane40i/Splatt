@@ -306,7 +306,8 @@
 
       const scene = new THREE.Scene();
       const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 100);
-      camera.position.set(0, 0.12, 6);
+      camera.up.set(0, 0, 1);
+      camera.position.set(0, -6, 0.12);
 
       const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -336,8 +337,9 @@
       controls.screenSpacePanning = true;
 
       function resetView() {
-        camera.position.set(0, 0.12, 6);
-        controls.target.set(0, 0.12, 0);
+        camera.up.set(0, 0, 1);
+        camera.position.set(0, -6, 0.12);
+        controls.target.set(0, 0, 0.12);
         controls.update();
       }
 
