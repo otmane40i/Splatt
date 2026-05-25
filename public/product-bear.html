@@ -250,7 +250,7 @@
     <script type="module">
       import * as THREE from "three";
       import { OrbitControls } from "https://unpkg.com/three@0.160.0/examples/jsm/controls/OrbitControls.js";
-      import { OBJLoader } from "https://unpkg.com/three@0.160.0/examples/jsm/loaders/OBJLoader.js";
+      import { STLLoader } from "https://unpkg.com/three@0.160.0/examples/jsm/loaders/STLLoader.js";
 
       const colors = ["#FF2E93", "#1FA8A0", "#FF6B1A", "#F1C40F", "#9B59B6", "#3498DB", "#F0F0F0", "#222222"];
       let selectedColor = "#F0F0F0";
@@ -327,30 +327,31 @@
         palette.appendChild(swatch);
       });
 
-      new OBJLoader().load(
-        "/products/bear.obj",
-        (object) => {
-          bear = object;
-          bear.traverse((child) => {
-            if (child.isMesh) {
-              child.material = material;
-              child.castShadow = true;
-              child.receiveShadow = true;
-              child.geometry.computeVertexNormals();
-            }
-          });
+      new STLLoader().load(
+        "/products/bear.stl",
+        (geometry) => {
+          geometry.computeVertexNormals();
+          bear = new THREE.Mesh(geometry, material);
+          bear.castShadow = true;
+          bear.receiveShadow = true;
 
           const box = new THREE.Box3().setFromObject(bear);
           const center = box.getCenter(new THREE.Vector3());
           const size = box.getSize(new THREE.Vector3()).length();
-          bear.position.sub(center);
+          bear.geometry.translate(-center.x, -center.y, -center.z);
           bear.scale.setScalar(3.4 / size);
           scene.add(bear);
-          loading.hidden = true;
+          loading.style.display = "none";
         },
-        undefined,
-        () => {
-          loading.textContent = "Could not load /products/bear.obj";
+        (event) => {
+          if (event.lengthComputable) {
+            const progress = Math.round((event.loaded / event.total) * 100);
+            loading.textContent = `Loading bear... ${progress}%`;
+          }
+        },
+        (error) => {
+          console.error(error);
+          loading.textContent = "Could not load /products/bear.stl";
         }
       );
 
