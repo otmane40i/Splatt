@@ -91,16 +91,11 @@
         cursor: grabbing;
       }
 
-      #viewer,
-      #paint {
+      #viewer {
         position: absolute;
         inset: 0;
         width: 100%;
         height: 100%;
-      }
-
-      #paint {
-        pointer-events: none;
       }
 
       .loading {
@@ -263,7 +258,6 @@
             <button type="button" id="resetView">Reset view</button>
           </div>
           <div id="viewer"></div>
-          <canvas id="paint"></canvas>
           <div class="loading" id="loading">Loading bear...</div>
         </div>
 
@@ -308,8 +302,6 @@
 
       const viewer = document.getElementById("viewer");
       const loading = document.getElementById("loading");
-      const paintCanvas = document.getElementById("paint");
-      const paintContext = paintCanvas.getContext("2d");
       const palette = document.getElementById("palette");
       const pourButton = document.getElementById("pour");
       const resetViewButton = document.getElementById("resetView");
@@ -403,8 +395,8 @@
 
       function drawStream(context, color, startX, width, height) {
         const points = [];
-        const segments = 10 + Math.floor(Math.random() * 7);
-        const streamHeight = randomBetween(height * 0.52, height * 1.12);
+        const segments = 8 + Math.floor(Math.random() * 6);
+        const streamHeight = randomBetween(height * 0.48, height * 1.04);
         let x = startX;
 
         for (let index = 0; index <= segments; index += 1) {
@@ -413,12 +405,13 @@
           points.push({ x, y });
         }
 
-        const streamWidth = randomBetween(width * 0.035, width * 0.105);
+        const streamWidth = randomBetween(width * 0.028, width * 0.082);
         context.save();
+        context.globalCompositeOperation = "source-over";
         context.lineCap = "round";
         context.lineJoin = "round";
         context.shadowColor = color;
-        context.shadowBlur = 18;
+        context.shadowBlur = 7;
         context.strokeStyle = color;
         context.lineWidth = streamWidth;
         context.beginPath();
@@ -446,6 +439,25 @@
         context.restore();
       }
 
+      function drawHighlight(context, startX, width, height) {
+        const streamHeight = randomBetween(height * 0.34, height * 0.72);
+        const lineWidth = randomBetween(2, 6);
+        let x = startX;
+        context.save();
+        context.globalAlpha = 0.42;
+        context.strokeStyle = "#ffffff";
+        context.lineWidth = lineWidth;
+        context.lineCap = "round";
+        context.beginPath();
+        context.moveTo(x, randomBetween(height * 0.02, height * 0.16));
+        for (let y = height * 0.12; y < streamHeight; y += randomBetween(42, 80)) {
+          x += randomBetween(-width * 0.02, width * 0.02);
+          context.lineTo(x, y);
+        }
+        context.stroke();
+        context.restore();
+      }
+
       function generatePourTexture() {
         if (selectedColors.length === 0) return null;
 
@@ -456,20 +468,12 @@
         if (!context) return null;
 
         const paintColors = [...selectedColors];
-        context.fillStyle = "#f8f7f1";
+        context.fillStyle = "#ffffff";
         context.fillRect(0, 0, canvas.width, canvas.height);
 
-        const baseGradient = context.createLinearGradient(0, 0, canvas.width, canvas.height);
-        baseGradient.addColorStop(0, paintColors[0]);
-        baseGradient.addColorStop(0.45, paintColors[1] || paintColors[0]);
-        baseGradient.addColorStop(1, paintColors[2] || paintColors[0]);
-        context.globalAlpha = 0.9;
-        context.fillStyle = baseGradient;
-        context.fillRect(0, 0, canvas.width, canvas.height);
-        context.globalAlpha = 1;
-
-        context.filter = "blur(14px)";
-        for (let index = 0; index < 18; index += 1) {
+        context.globalAlpha = 0.22;
+        context.filter = "blur(8px)";
+        for (let index = 0; index < 10; index += 1) {
           drawStream(
             context,
             paintColors[Math.floor(Math.random() * paintColors.length)],
@@ -479,8 +483,9 @@
           );
         }
 
+        context.globalAlpha = 1;
         context.filter = "none";
-        for (let index = 0; index < 24; index += 1) {
+        for (let index = 0; index < 30; index += 1) {
           drawStream(
             context,
             paintColors[Math.floor(Math.random() * paintColors.length)],
@@ -490,19 +495,9 @@
           );
         }
 
-        context.globalAlpha = 0.28;
-        context.strokeStyle = "#ffffff";
-        context.lineCap = "round";
-        for (let index = 0; index < 18; index += 1) {
-          context.lineWidth = randomBetween(2, 8);
-          const x = randomBetween(canvas.width * 0.08, canvas.width * 0.92);
-          const y = randomBetween(canvas.height * 0.08, canvas.height * 0.82);
-          context.beginPath();
-          context.moveTo(x, y);
-          context.quadraticCurveTo(x + randomBetween(-35, 35), y + randomBetween(28, 110), x + randomBetween(-45, 45), y + randomBetween(90, 210));
-          context.stroke();
+        for (let index = 0; index < 22; index += 1) {
+          drawHighlight(context, randomBetween(canvas.width * 0.06, canvas.width * 0.94), canvas.width, canvas.height);
         }
-        context.globalAlpha = 1;
 
         const texture = new THREE.CanvasTexture(canvas);
         texture.colorSpace = THREE.SRGBColorSpace;
@@ -527,11 +522,6 @@
         renderer.setSize(rect.width, rect.height);
         camera.aspect = rect.width / rect.height;
         camera.updateProjectionMatrix();
-        paintCanvas.width = Math.floor(rect.width * window.devicePixelRatio);
-        paintCanvas.height = Math.floor(rect.height * window.devicePixelRatio);
-        paintCanvas.style.width = `${rect.width}px`;
-        paintCanvas.style.height = `${rect.height}px`;
-        paintContext.setTransform(window.devicePixelRatio, 0, 0, window.devicePixelRatio, 0, 0);
       }
 
       colors.forEach((color) => {
@@ -590,23 +580,8 @@
         }
       );
 
-      const particles = [];
-
       function pourPaint() {
         if (bear) applyPourTexture();
-        const rect = viewer.getBoundingClientRect();
-        if (selectedColors.length === 0) return;
-        for (let index = 0; index < 140; index += 1) {
-          particles.push({
-            x: rect.width * (0.22 + Math.random() * 0.56),
-            y: -30 - Math.random() * 160,
-            radius: 2 + Math.random() * 5,
-            speed: 1.4 + Math.random() * 3.2,
-            wobble: Math.random() * Math.PI * 2,
-            color: selectedColors[Math.floor(Math.random() * selectedColors.length)],
-            life: 1
-          });
-        }
       }
 
       pourButton.addEventListener("click", pourPaint);
@@ -631,34 +606,6 @@
         }
         controls.update();
         renderer.render(scene, camera);
-
-        const rect = viewer.getBoundingClientRect();
-        paintContext.clearRect(0, 0, rect.width, rect.height);
-
-        for (let index = particles.length - 1; index >= 0; index -= 1) {
-          const particle = particles[index];
-          particle.y += particle.speed;
-          particle.x += Math.sin(particle.wobble + particle.y * 0.035) * 0.8;
-          particle.life -= 0.006;
-
-          paintContext.globalAlpha = Math.max(0, particle.life);
-          paintContext.fillStyle = particle.color;
-          paintContext.beginPath();
-          paintContext.ellipse(particle.x, particle.y, particle.radius * 0.72, particle.radius * 1.8, 0, 0, Math.PI * 2);
-          paintContext.fill();
-
-          paintContext.beginPath();
-          paintContext.moveTo(particle.x, particle.y);
-          paintContext.lineTo(particle.x + Math.sin(particle.wobble) * 8, particle.y + particle.radius * 4);
-          paintContext.lineWidth = Math.max(2, particle.radius * 0.42);
-          paintContext.lineCap = "round";
-          paintContext.strokeStyle = particle.color;
-          paintContext.stroke();
-
-          if (particle.y > rect.height + 80 || particle.life <= 0) particles.splice(index, 1);
-        }
-
-        paintContext.globalAlpha = 1;
       }
 
       animate();
