@@ -306,7 +306,7 @@
 
       const scene = new THREE.Scene();
       const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 100);
-      camera.position.set(0, 1.1, 6);
+      camera.position.set(0, 0.12, 6);
 
       const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -336,8 +336,8 @@
       controls.screenSpacePanning = true;
 
       function resetView() {
-        camera.position.set(0, 1.1, 6);
-        controls.target.set(0, 0, 0);
+        camera.position.set(0, 0.12, 6);
+        controls.target.set(0, 0.12, 0);
         controls.update();
       }
 
@@ -390,8 +390,7 @@
           bear.geometry.translate(-center.x, -center.y, -center.z);
           bear.scale.setScalar(4.6 / size);
           scene.add(bear);
-          controls.target.set(0, 0, 0);
-          controls.update();
+          resetView();
           loading.style.display = "none";
         },
         (event) => {
