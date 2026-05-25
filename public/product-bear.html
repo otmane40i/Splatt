@@ -158,6 +158,8 @@
       .swatch.active {
         transform: translateY(-2px) scale(1.08);
         border-color: #fff;
+        outline: 2px solid #fff;
+        outline-offset: 4px;
         box-shadow: 0 0 24px color-mix(in srgb, var(--selected) 60%, transparent);
       }
 
@@ -165,10 +167,6 @@
         display: flex;
         flex-wrap: wrap;
         gap: 12px;
-      }
-
-      .hidden {
-        display: none !important;
       }
 
       button:not(.swatch),
@@ -191,6 +189,13 @@
       button:not(.swatch) {
         background: linear-gradient(90deg, var(--pink), var(--orange));
         box-shadow: 0 0 32px rgba(255, 46, 147, 0.24);
+      }
+
+      button:disabled {
+        cursor: not-allowed;
+        opacity: 0.45;
+        transform: none !important;
+        box-shadow: none;
       }
 
       a.button {
@@ -271,7 +276,6 @@
 
           <div class="actions">
             <button type="button" id="pour">Pour the paint</button>
-            <button type="button" id="tryAgain" class="hidden">Try again</button>
             <a class="button" id="whatsapp" href="#" target="_blank" rel="noreferrer">Order on WhatsApp</a>
           </div>
         </section>
@@ -297,7 +301,7 @@
       import { STLLoader } from "https://unpkg.com/three@0.160.0/examples/jsm/loaders/STLLoader.js";
 
       const colors = ["#FF2E93", "#1FA8A0", "#FF6B1A", "#F1C40F", "#9B59B6", "#3498DB", "#F0F0F0", "#222222"];
-      let selectedColor = "#F0F0F0";
+      const selectedColors = [];
       let bear = null;
       let introFloatStart = 0;
       let introFloatActive = false;
@@ -308,7 +312,6 @@
       const paintContext = paintCanvas.getContext("2d");
       const palette = document.getElementById("palette");
       const pourButton = document.getElementById("pour");
-      const tryAgainButton = document.getElementById("tryAgain");
       const resetViewButton = document.getElementById("resetView");
       const whatsapp = document.getElementById("whatsapp");
 
@@ -323,7 +326,7 @@
       viewer.appendChild(renderer.domElement);
 
       const material = new THREE.MeshStandardMaterial({
-        color: selectedColor,
+        color: "#ffffff",
         roughness: 0.34,
         metalness: 0.04
       });
@@ -367,8 +370,13 @@
       }
 
       function updateWhatsapp() {
-        const message = `Salam SPLATT., I want to order Splatt. Bear with selected color ${selectedColor}.`;
+        const colorText = selectedColors.length > 0 ? selectedColors.join(", ") : "no colors selected yet";
+        const message = `Salam SPLATT., I want to order Splatt. Bear with selected colors ${colorText}.`;
         whatsapp.href = `https://wa.me/212XXXXXXXXX?text=${encodeURIComponent(message)}`;
+      }
+
+      function updatePourState() {
+        pourButton.disabled = selectedColors.length === 0;
       }
 
       function addProjectedUvs(geometry) {
@@ -387,16 +395,6 @@
         }
 
         geometry.setAttribute("uv", new THREE.BufferAttribute(uvs, 2));
-      }
-
-      function pickPaintColors() {
-        const pool = colors.filter((color) => color !== "#222222" && color !== "#F0F0F0" && color !== selectedColor);
-        const picked = [selectedColor];
-        while (picked.length < 4 && pool.length > 0) {
-          const index = Math.floor(Math.random() * pool.length);
-          picked.push(pool.splice(index, 1)[0]);
-        }
-        return picked;
       }
 
       function randomBetween(min, max) {
@@ -449,13 +447,15 @@
       }
 
       function generatePourTexture() {
+        if (selectedColors.length === 0) return null;
+
         const canvas = document.createElement("canvas");
         canvas.width = 1024;
         canvas.height = 1024;
         const context = canvas.getContext("2d");
         if (!context) return null;
 
-        const paintColors = pickPaintColors();
+        const paintColors = [...selectedColors];
         context.fillStyle = "#f8f7f1";
         context.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -520,7 +520,6 @@
         material.color.set("#ffffff");
         material.roughness = 0.24;
         material.needsUpdate = true;
-        tryAgainButton.classList.remove("hidden");
       }
 
       function resize() {
@@ -542,12 +541,19 @@
         swatch.style.background = color;
         swatch.style.setProperty("--selected", color);
         swatch.setAttribute("aria-label", `Select ${color}`);
-        if (color === selectedColor) swatch.classList.add("active");
+        swatch.setAttribute("aria-pressed", "false");
         swatch.addEventListener("click", () => {
-          selectedColor = color;
-          material.color.set(color);
-          document.querySelectorAll(".swatch").forEach((item) => item.classList.remove("active"));
-          swatch.classList.add("active");
+          const existingIndex = selectedColors.indexOf(color);
+          if (existingIndex >= 0) {
+            selectedColors.splice(existingIndex, 1);
+            swatch.classList.remove("active");
+            swatch.setAttribute("aria-pressed", "false");
+          } else if (selectedColors.length < 3) {
+            selectedColors.push(color);
+            swatch.classList.add("active");
+            swatch.setAttribute("aria-pressed", "true");
+          }
+          updatePourState();
           updateWhatsapp();
         });
         palette.appendChild(swatch);
@@ -589,6 +595,7 @@
       function pourPaint() {
         if (bear) applyPourTexture();
         const rect = viewer.getBoundingClientRect();
+        if (selectedColors.length === 0) return;
         for (let index = 0; index < 140; index += 1) {
           particles.push({
             x: rect.width * (0.22 + Math.random() * 0.56),
@@ -596,17 +603,17 @@
             radius: 2 + Math.random() * 5,
             speed: 1.4 + Math.random() * 3.2,
             wobble: Math.random() * Math.PI * 2,
-            color: Math.random() > 0.35 ? selectedColor : colors[Math.floor(Math.random() * colors.length)],
+            color: selectedColors[Math.floor(Math.random() * selectedColors.length)],
             life: 1
           });
         }
       }
 
       pourButton.addEventListener("click", pourPaint);
-      tryAgainButton.addEventListener("click", pourPaint);
       resetViewButton.addEventListener("click", resetView);
       controls.addEventListener("start", stopIntroFloat);
       window.addEventListener("resize", resize);
+      updatePourState();
       updateWhatsapp();
       resize();
 
