@@ -198,6 +198,13 @@
         }
       }
     </style>
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
+        }
+      }
+    </script>
   </head>
   <body>
     <main>
@@ -227,8 +234,21 @@
       </section>
     </main>
 
+    <script>
+      window.addEventListener("error", (event) => {
+        const loading = document.getElementById("loading");
+        if (loading) loading.textContent = `Could not load 3D viewer: ${event.message}`;
+      });
+
+      window.addEventListener("unhandledrejection", (event) => {
+        const loading = document.getElementById("loading");
+        if (loading) loading.textContent = "Could not load 3D viewer. Refresh or check the network.";
+        console.error(event.reason);
+      });
+    </script>
+
     <script type="module">
-      import * as THREE from "https://unpkg.com/three@0.160.0/build/three.module.js";
+      import * as THREE from "three";
       import { OrbitControls } from "https://unpkg.com/three@0.160.0/examples/jsm/controls/OrbitControls.js";
       import { OBJLoader } from "https://unpkg.com/three@0.160.0/examples/jsm/loaders/OBJLoader.js";
 
