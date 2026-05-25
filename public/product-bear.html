@@ -294,6 +294,8 @@
       const colors = ["#FF2E93", "#1FA8A0", "#FF6B1A", "#F1C40F", "#9B59B6", "#3498DB", "#F0F0F0", "#222222"];
       let selectedColor = "#F0F0F0";
       let bear = null;
+      let introFloatStart = 0;
+      let introFloatActive = false;
 
       const viewer = document.getElementById("viewer");
       const loading = document.getElementById("loading");
@@ -326,17 +328,32 @@
       scene.add(directionalLight);
 
       const controls = new OrbitControls(camera, renderer.domElement);
-      controls.enableDamping = false;
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.045;
       controls.autoRotate = false;
       controls.enablePan = true;
-      controls.panSpeed = 0.85;
-      controls.rotateSpeed = 0.72;
-      controls.zoomSpeed = 0.9;
+      controls.panSpeed = 0.62;
+      controls.rotateSpeed = 0.5;
+      controls.zoomSpeed = 0.78;
       controls.minDistance = 1.8;
       controls.maxDistance = 12;
       controls.screenSpacePanning = true;
 
+      function startIntroFloat() {
+        introFloatStart = performance.now();
+        introFloatActive = true;
+        controls.autoRotate = true;
+        controls.autoRotateSpeed = 0.18;
+      }
+
+      function stopIntroFloat() {
+        introFloatActive = false;
+        controls.autoRotate = false;
+        controls.autoRotateSpeed = 0;
+      }
+
       function resetView() {
+        stopIntroFloat();
         camera.up.set(0, 0, 1);
         camera.position.set(0, -6, 0.12);
         controls.target.set(0, 0, 0.12);
@@ -393,6 +410,7 @@
           bear.scale.setScalar(4.6 / size);
           scene.add(bear);
           resetView();
+          startIntroFloat();
           loading.style.display = "none";
         },
         (event) => {
@@ -426,12 +444,23 @@
 
       pourButton.addEventListener("click", pourPaint);
       resetViewButton.addEventListener("click", resetView);
+      controls.addEventListener("start", stopIntroFloat);
       window.addEventListener("resize", resize);
       updateWhatsapp();
       resize();
 
       function animate() {
         requestAnimationFrame(animate);
+        if (introFloatActive) {
+          const elapsed = performance.now() - introFloatStart;
+          if (elapsed < 2200) {
+            controls.autoRotateSpeed = 0.18;
+          } else if (elapsed < 3000) {
+            controls.autoRotateSpeed = 0.18 * (1 - (elapsed - 2200) / 800);
+          } else {
+            stopIntroFloat();
+          }
+        }
         controls.update();
         renderer.render(scene, camera);
 
