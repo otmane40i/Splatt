@@ -30,17 +30,17 @@
       }
 
       main {
-        width: min(100% - 32px, 1120px);
+        width: min(100% - 24px, 1360px);
         margin: 0 auto;
-        padding: 28px 0 42px;
+        padding: 18px 0 28px;
       }
 
       .brand {
         display: inline-flex;
         align-items: center;
         gap: 10px;
-        margin-bottom: 20px;
-        font-size: clamp(2rem, 8vw, 4rem);
+        margin-bottom: 14px;
+        font-size: clamp(1.8rem, 6vw, 3.5rem);
         font-weight: 1000;
         line-height: 1;
         letter-spacing: 0;
@@ -65,13 +65,13 @@
 
       .layout {
         display: grid;
-        gap: 28px;
+        gap: 20px;
         align-items: center;
       }
 
       .viewer-wrap {
         position: relative;
-        min-height: min(72vh, 680px);
+        min-height: min(78vh, 820px);
         overflow: hidden;
         border: 1px solid rgba(255, 255, 255, 0.1);
         border-radius: 24px;
@@ -79,6 +79,15 @@
           linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.015)),
           #050505;
         box-shadow: 0 0 70px rgba(255, 46, 147, 0.16);
+      }
+
+      .viewer-wrap canvas {
+        cursor: grab;
+        touch-action: none;
+      }
+
+      .viewer-wrap canvas:active {
+        cursor: grabbing;
       }
 
       #viewer,
@@ -105,13 +114,13 @@
 
       .panel {
         display: grid;
-        gap: 18px;
+        gap: 16px;
         padding-bottom: 10px;
       }
 
       h1 {
         margin: 0;
-        font-size: clamp(2.4rem, 8vw, 5rem);
+        font-size: clamp(2.2rem, 6vw, 4.2rem);
         line-height: 0.95;
         letter-spacing: 0;
       }
@@ -183,6 +192,25 @@
         background: rgba(31, 168, 160, 0.92);
       }
 
+      .viewer-tools {
+        position: absolute;
+        left: 16px;
+        top: 16px;
+        z-index: 4;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .viewer-tools button {
+        min-height: 38px;
+        padding: 0 14px;
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        background: rgba(255, 255, 255, 0.07);
+        box-shadow: none;
+        backdrop-filter: blur(14px);
+      }
+
       button:not(.swatch):hover,
       a.button:hover {
         transform: translateY(-2px);
@@ -190,11 +218,17 @@
 
       @media (min-width: 920px) {
         .layout {
-          grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.72fr);
+          grid-template-columns: minmax(0, 1.45fr) minmax(300px, 0.55fr);
         }
 
         .panel {
           padding-left: 8px;
+        }
+      }
+
+      @media (max-width: 919px) {
+        .viewer-wrap {
+          min-height: 58vh;
         }
       }
     </style>
@@ -214,6 +248,9 @@
 
       <section class="layout">
         <div class="viewer-wrap">
+          <div class="viewer-tools">
+            <button type="button" id="resetView">Reset view</button>
+          </div>
           <div id="viewer"></div>
           <canvas id="paint"></canvas>
           <div class="loading" id="loading">Loading bear...</div>
@@ -262,6 +299,7 @@
       const paintContext = paintCanvas.getContext("2d");
       const palette = document.getElementById("palette");
       const pourButton = document.getElementById("pour");
+      const resetViewButton = document.getElementById("resetView");
       const whatsapp = document.getElementById("whatsapp");
 
       const scene = new THREE.Scene();
@@ -286,11 +324,15 @@
 
       const controls = new OrbitControls(camera, renderer.domElement);
       controls.enableDamping = true;
-      controls.dampingFactor = 0.08;
-      controls.autoRotate = true;
-      controls.autoRotateSpeed = 1.0;
-      controls.minDistance = 3;
-      controls.maxDistance = 9;
+      controls.dampingFactor = 0.12;
+      controls.autoRotate = false;
+      controls.enablePan = true;
+      controls.panSpeed = 0.85;
+      controls.rotateSpeed = 0.72;
+      controls.zoomSpeed = 0.9;
+      controls.minDistance = 1.8;
+      controls.maxDistance = 12;
+      controls.screenSpacePanning = true;
 
       function updateWhatsapp() {
         const message = `Salam SPLATT., I want to order Splatt. Bear with selected color ${selectedColor}.`;
@@ -339,8 +381,10 @@
           const center = box.getCenter(new THREE.Vector3());
           const size = box.getSize(new THREE.Vector3()).length();
           bear.geometry.translate(-center.x, -center.y, -center.z);
-          bear.scale.setScalar(3.4 / size);
+          bear.scale.setScalar(4.6 / size);
           scene.add(bear);
+          controls.target.set(0, 0, 0);
+          controls.update();
           loading.style.display = "none";
         },
         (event) => {
@@ -363,8 +407,8 @@
           particles.push({
             x: rect.width * (0.22 + Math.random() * 0.56),
             y: -30 - Math.random() * 160,
-            radius: 3 + Math.random() * 10,
-            speed: 2.2 + Math.random() * 5.8,
+            radius: 2 + Math.random() * 5,
+            speed: 1.4 + Math.random() * 3.2,
             wobble: Math.random() * Math.PI * 2,
             color: Math.random() > 0.35 ? selectedColor : colors[Math.floor(Math.random() * colors.length)],
             life: 1
@@ -373,6 +417,11 @@
       }
 
       pourButton.addEventListener("click", pourPaint);
+      resetViewButton.addEventListener("click", () => {
+        camera.position.set(0, 1.1, 6);
+        controls.target.set(0, 0, 0);
+        controls.update();
+      });
       window.addEventListener("resize", resize);
       updateWhatsapp();
       resize();
