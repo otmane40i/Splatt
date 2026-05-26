@@ -190,6 +190,13 @@ function modelExtension(modelPath: string) {
   }
 }
 
+function modelLoaderPath(modelPath: string) {
+  if (modelPath.startsWith("http://") || modelPath.startsWith("https://")) {
+    return `/api/model?url=${encodeURIComponent(modelPath)}`;
+  }
+  return modelPath;
+}
+
 type ViewerState = {
   material: THREE.MeshStandardMaterial;
   controls: OrbitControls;
@@ -284,8 +291,9 @@ export function ProductCustomizer({ product }: { product: StoreProduct }) {
     }
 
     async function loadModel() {
-      const path = product.model3d ?? "";
-      const extension = modelExtension(path);
+      const modelPath = product.model3d ?? "";
+      const path = modelLoaderPath(modelPath);
+      const extension = modelExtension(modelPath);
       if (extension === "obj") {
         const object = await new OBJLoader().loadAsync(path);
         object.traverse((child) => {
