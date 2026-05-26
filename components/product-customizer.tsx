@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { RotateCcw } from "lucide-react";
+import { ImageIcon, RotateCcw, Sparkles } from "lucide-react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { OBJLoader } from "three/examples/jsm/loaders/OBJLoader.js";
@@ -196,11 +196,14 @@ type ViewerState = {
   resetView: () => void;
 };
 
+type ProductViewMode = "model" | "image";
+
 export function ProductCustomizer({ product }: { product: StoreProduct }) {
   const mountRef = useRef<HTMLDivElement | null>(null);
   const viewerRef = useRef<ViewerState | null>(null);
   const [selectedColors, setSelectedColors] = useState<string[]>([]);
   const [loadError, setLoadError] = useState("");
+  const [viewMode, setViewMode] = useState<ProductViewMode>(product.model3d ? "model" : "image");
   const { locale } = useLanguage();
   const name = locale === "fr" ? product.nameFR : product.nameEN;
   const description = locale === "fr" ? product.descFR : product.descEN;
@@ -211,7 +214,7 @@ export function ProductCustomizer({ product }: { product: StoreProduct }) {
 
   useEffect(() => {
     const mount = mountRef.current;
-    if (!mount || !product.model3d) return;
+    if (!mount || !product.model3d || viewMode !== "model") return;
 
     setLoadError("");
     let cancelled = false;
@@ -346,7 +349,7 @@ export function ProductCustomizer({ product }: { product: StoreProduct }) {
       mount.replaceChildren();
       viewerRef.current = null;
     };
-  }, [product.model3d]);
+  }, [product.model3d, viewMode]);
 
   function toggleColor(color: string) {
     setSelectedColors((current) => {
@@ -388,11 +391,28 @@ export function ProductCustomizer({ product }: { product: StoreProduct }) {
   return (
     <main className="container-page grid gap-8 py-8 lg:grid-cols-[1.35fr_0.65fr]">
       <section className="glass relative min-h-[58vh] overflow-hidden p-0 lg:min-h-[760px]">
-        <div ref={mountRef} className="absolute inset-0 cursor-grab active:cursor-grabbing" />
-        {loadError ? <div className="absolute inset-0 grid place-items-center text-sm font-bold text-red-200">{loadError}</div> : null}
-        <Button type="button" variant="outline" className="absolute bottom-5 left-5 z-10" onClick={() => viewerRef.current?.resetView()}>
-          <RotateCcw className="h-4 w-4" /> Reset view
-        </Button>
+        <div className="absolute left-5 top-5 z-10 flex rounded-full border border-white/10 bg-black/60 p-1 backdrop-blur-xl">
+          <Button type="button" size="sm" variant={viewMode === "model" ? "default" : "ghost"} onClick={() => setViewMode("model")}>
+            <Sparkles className="h-4 w-4" /> 3D
+          </Button>
+          <Button type="button" size="sm" variant={viewMode === "image" ? "default" : "ghost"} onClick={() => setViewMode("image")}>
+            <ImageIcon className="h-4 w-4" /> Picture
+          </Button>
+        </div>
+
+        {viewMode === "model" ? (
+          <>
+            <div ref={mountRef} className="absolute inset-0 cursor-grab active:cursor-grabbing" />
+            {loadError ? <div className="absolute inset-0 grid place-items-center text-sm font-bold text-red-200">{loadError}</div> : null}
+            <Button type="button" variant="outline" className="absolute bottom-5 left-5 z-10" onClick={() => viewerRef.current?.resetView()}>
+              <RotateCcw className="h-4 w-4" /> Reset view
+            </Button>
+          </>
+        ) : (
+          <div className="absolute inset-0 grid place-items-center p-8">
+            <Image src={product.image} alt={name} fill className="object-contain p-8 md:p-14" priority />
+          </div>
+        )}
       </section>
 
       <section className="flex flex-col justify-center">

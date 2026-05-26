@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { Edit, Plus, Trash2 } from "lucide-react";
+import { Edit, ImageIcon, Languages, LinkIcon, Plus, Trash2, UploadCloud } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -31,16 +31,22 @@ const blankProduct: ProductDraft = {
 export function ProductsManager({ products }: { products: StoreProduct[] }) {
   const [draft, setDraft] = useState<ProductDraft | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [isTranslating, setIsTranslating] = useState(false);
   const router = useRouter();
 
   function save() {
     if (!draft) return;
     const method = draft.id ? "PUT" : "POST";
+    const payload = {
+      ...draft,
+      nameFR: draft.nameEN,
+      descFR: draft.descFR || draft.descEN
+    };
     startTransition(async () => {
       await fetch("/api/products", {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(draft)
+        body: JSON.stringify(payload)
       });
       setDraft(null);
       router.refresh();
@@ -58,13 +64,29 @@ export function ProductsManager({ products }: { products: StoreProduct[] }) {
     });
   }
 
-  async function upload(file: File, field: "image" | "model3d") {
+  async function upload(file: File) {
     const data = new FormData();
     data.append("file", file);
     const response = await fetch("/api/upload", { method: "POST", body: data });
     if (!response.ok) return;
     const result = (await response.json()) as { path: string };
-    setDraft((value) => value ? { ...value, [field]: result.path } : value);
+    setDraft((value) => value ? { ...value, image: result.path } : value);
+  }
+
+  async function translateDescription() {
+    if (!draft?.descEN.trim()) return;
+    setIsTranslating(true);
+    try {
+      const response = await fetch("/api/translate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: draft.descEN, from: "en", to: "fr" })
+      });
+      const result = (await response.json()) as { translatedText?: string };
+      setDraft((value) => value ? { ...value, descFR: result.translatedText || value.descEN } : value);
+    } finally {
+      setIsTranslating(false);
+    }
   }
 
   return (
@@ -107,30 +129,54 @@ export function ProductsManager({ products }: { products: StoreProduct[] }) {
         </table>
       </div>
       <Dialog open={Boolean(draft)} onOpenChange={(open) => !open && setDraft(null)}>
-        <DialogContent className="max-w-3xl">
+        <DialogContent className="max-w-4xl">
           <DialogHeader><DialogTitle>{draft?.id ? "Edit product" : "Add product"}</DialogTitle></DialogHeader>
           {draft ? (
-            <div className="grid gap-4 md:grid-cols-2">
-              <Field label="Name EN" value={draft.nameEN} onChange={(value) => setDraft({ ...draft, nameEN: value, slug: draft.slug || slugify(value) })} />
-              <Field label="Name FR" value={draft.nameFR} onChange={(value) => setDraft({ ...draft, nameFR: value })} />
-              <Field label="Slug" value={draft.slug} onChange={(value) => setDraft({ ...draft, slug: slugify(value) })} />
-              <Field label="Category" value={draft.category} onChange={(value) => setDraft({ ...draft, category: value })} />
-              <Field label="Price" type="number" value={String(draft.price)} onChange={(value) => setDraft({ ...draft, price: Number(value) })} />
-              <Field label="Image path" value={draft.image} onChange={(value) => setDraft({ ...draft, image: value })} />
-              <Field label="3D model path" value={draft.model3d ?? ""} onChange={(value) => setDraft({ ...draft, model3d: value || null })} />
-              <div className="grid gap-2 md:col-span-2">
-                <Label htmlFor="upload">Upload image</Label>
-                <Input id="upload" type="file" accept="image/*" onChange={(event) => event.target.files?.[0] ? upload(event.target.files[0], "image") : undefined} />
+            <div className="grid gap-5 lg:grid-cols-[0.85fr_1.15fr]">
+              <div className="space-y-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                <div className="relative aspect-square overflow-hidden rounded-2xl border border-white/10 bg-black/50">
+                  {draft.image ? (
+                    <div className="h-full w-full bg-contain bg-center bg-no-repeat" style={{ backgroundImage: `url("${draft.image}")` }} />
+                  ) : (
+                    <div className="grid h-full place-items-center text-white/40"><ImageIcon className="h-10 w-10" /></div>
+                  )}
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="upload" className="flex items-center gap-2"><UploadCloud className="h-4 w-4" /> Product picture</Label>
+                  <Input id="upload" type="file" accept="image/*" onChange={(event) => event.target.files?.[0] ? upload(event.target.files[0]) : undefined} />
+                </div>
+                <Field label="Image URL" value={draft.image} onChange={(value) => setDraft({ ...draft, image: value })} />
               </div>
-              <div className="grid gap-2 md:col-span-2">
-                <Label htmlFor="model-upload">Upload 3D model</Label>
-                <Input id="model-upload" type="file" accept=".stl,.obj" onChange={(event) => event.target.files?.[0] ? upload(event.target.files[0], "model3d") : undefined} />
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <Field label="Product name" value={draft.nameEN} onChange={(value) => setDraft({ ...draft, nameEN: value, nameFR: value, slug: draft.slug || slugify(value) })} />
+                <Field label="Slug" value={draft.slug} onChange={(value) => setDraft({ ...draft, slug: slugify(value) })} />
+                <Field label="Price MAD" type="number" value={String(draft.price)} onChange={(value) => setDraft({ ...draft, price: Number(value) })} />
+                <Field label="Category" value={draft.category} onChange={(value) => setDraft({ ...draft, category: value })} />
+
+                <div className="grid gap-2 md:col-span-2">
+                  <Label htmlFor="model3d" className="flex items-center gap-2"><LinkIcon className="h-4 w-4" /> 3D model Firebase URL</Label>
+                  <Input id="model3d" value={draft.model3d ?? ""} placeholder="https://firebasestorage.googleapis.com/..." onChange={(event) => setDraft({ ...draft, model3d: event.target.value || null })} />
+                  <p className="text-xs text-white/45">Upload STL/OBJ in Firebase Storage, then paste the download URL here.</p>
+                </div>
+
+                <div className="grid gap-2 md:col-span-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <Label htmlFor="descEN">Description</Label>
+                    <Button type="button" size="sm" variant="outline" onClick={translateDescription} disabled={isTranslating || draft.descEN.trim().length < 8}>
+                      <Languages className="h-4 w-4" /> {isTranslating ? "Translating..." : "Auto French"}
+                    </Button>
+                  </div>
+                  <Textarea id="descEN" value={draft.descEN} onChange={(event) => setDraft({ ...draft, descEN: event.target.value })} onBlur={() => { if (!draft.descFR && draft.descEN.trim().length >= 8) void translateDescription(); }} />
+                  <div className="rounded-xl border border-white/10 bg-black/30 p-3 text-sm text-white/60">
+                    <span className="font-bold text-white">French:</span> {draft.descFR || "Will be generated automatically."}
+                  </div>
+                </div>
+
+                <Toggle label="In stock" checked={draft.inStock} onChange={(value) => setDraft({ ...draft, inStock: value })} />
+                <Toggle label="Featured" checked={draft.featured} onChange={(value) => setDraft({ ...draft, featured: value })} />
+                <Button className="md:col-span-2" onClick={save} disabled={isPending || isTranslating}>{isPending ? "Saving..." : "Save product"}</Button>
               </div>
-              <Area label="Description EN" value={draft.descEN} onChange={(value) => setDraft({ ...draft, descEN: value })} />
-              <Area label="Description FR" value={draft.descFR} onChange={(value) => setDraft({ ...draft, descFR: value })} />
-              <Toggle label="In stock" checked={draft.inStock} onChange={(value) => setDraft({ ...draft, inStock: value })} />
-              <Toggle label="Featured" checked={draft.featured} onChange={(value) => setDraft({ ...draft, featured: value })} />
-              <Button className="md:col-span-2" onClick={save} disabled={isPending}>{isPending ? "Saving..." : "Save product"}</Button>
             </div>
           ) : null}
         </DialogContent>
@@ -142,11 +188,6 @@ export function ProductsManager({ products }: { products: StoreProduct[] }) {
 function Field({ label, value, onChange, type = "text" }: { label: string; value: string; onChange: (value: string) => void; type?: string }) {
   const id = label.replace(/\s+/g, "-").toLowerCase();
   return <div className="grid gap-2"><Label htmlFor={id}>{label}</Label><Input id={id} type={type} value={value} onChange={(event) => onChange(event.target.value)} /></div>;
-}
-
-function Area({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
-  const id = label.replace(/\s+/g, "-").toLowerCase();
-  return <div className="grid gap-2 md:col-span-2"><Label htmlFor={id}>{label}</Label><Textarea id={id} value={value} onChange={(event) => onChange(event.target.value)} /></div>;
 }
 
 function Toggle({ label, checked, onChange }: { label: string; checked: boolean; onChange: (value: boolean) => void }) {
