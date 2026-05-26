@@ -1,11 +1,9 @@
 import Link from "next/link";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
-import { GradientOrbs } from "@/components/gradient-orbs";
 import { ProductCard } from "@/components/product-card";
 import { Reveal } from "@/components/reveal";
 import { BrandSplash } from "@/components/brand-splash";
-import { HeroLogoStage } from "@/components/hero-logo-stage";
 import { getFeaturedProducts } from "@/lib/catalog";
 
 export const dynamic = "force-dynamic";
@@ -33,25 +31,24 @@ export default async function HomePage() {
   return (
     <main>
       <BrandSplash />
-      <section className="relative min-h-[calc(100vh-4rem)] overflow-hidden bg-black">
-        <GradientOrbs />
+      <section
+        className="relative flex min-h-[calc(100vh-4rem)] items-center overflow-hidden bg-cover bg-center bg-no-repeat"
+        style={{ backgroundImage: "url('/images/hero-banner.jpg')" }}
+      >
+        <div className="absolute inset-0 bg-black/40" />
         <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-splatt-pink to-transparent" />
-        <div className="container-page relative z-10 grid min-h-[calc(100vh-4rem)] items-center gap-10 py-12 lg:grid-cols-[0.88fr_1.12fr]">
-          <Reveal>
-            <p className="mb-4 text-sm font-black uppercase text-splatt-teal">DIY paint-pour figures · Morocco</p>
-            <h1 className="font-space text-6xl font-black leading-none tracking-normal text-white sm:text-7xl lg:text-8xl">
-              Created by You.
+        <div className="container-page relative z-10 flex min-h-[calc(100vh-4rem)] items-center justify-center py-16 text-center">
+          <Reveal className="mx-auto max-w-5xl">
+            <h1 className="font-space text-5xl font-black leading-none tracking-normal text-white drop-shadow-2xl sm:text-7xl lg:text-8xl">
+              No two are the same.
             </h1>
-            <p className="mt-6 max-w-xl text-lg text-white/68">
-              SPLATT. turns blank collectible figurines into loud one-of-one art kits. Pick a figure, pour your colors, own the chaos.
+            <p className="mx-auto mt-6 max-w-2xl text-xl font-semibold leading-8 text-white drop-shadow-lg sm:text-2xl">
+              Pick your figure. Pour your colors. Own the chaos.
             </p>
-            <div className="mt-8 flex flex-wrap gap-3">
+            <div className="mt-8 flex flex-wrap justify-center gap-3">
               <Button asChild size="default"><Link href="/shop">Shop Now</Link></Button>
               <Button asChild variant="outline"><Link href="/about">Our story</Link></Button>
             </div>
-          </Reveal>
-          <Reveal delay={0.15} className="relative">
-            <HeroLogoStage />
           </Reveal>
         </div>
       </section>
