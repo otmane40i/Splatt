@@ -41,14 +41,14 @@ export function ProductsManager({ products }: { products: StoreProduct[] }) {
     if (!draft) return;
     setError("");
     const slug = draft.slug.trim().length >= 2 ? slugify(draft.slug) : slugify(draft.nameEN);
-    const descEN = draft.descEN.trim();
+    const descEN = draft.descEN.trim() || "Created by You.";
     const method = draft.id ? "PUT" : "POST";
     const payload = {
       ...draft,
       slug,
       nameFR: draft.nameEN,
       descEN,
-      descFR: draft.descFR || descEN,
+      descFR: draft.descFR.trim() || descEN,
       stockQuantity: draft.stockQuantity ?? null,
       bundleQuantity: draft.bundlePrice ? draft.bundleQuantity ?? 2 : null,
       bundlePrice: draft.bundlePrice ?? null
@@ -173,7 +173,7 @@ export function ProductsManager({ products }: { products: StoreProduct[] }) {
                     <Languages className="h-4 w-4" /> {isTranslating ? "Translating..." : "Auto French"}
                   </Button>
                 </div>
-                <Textarea id="descEN" value={draft.descEN} onChange={(event) => setDraft({ ...draft, descEN: event.target.value })} onBlur={() => { if (!draft.descFR && draft.descEN.trim().length >= 8) void translateDescription(); }} />
+                <Textarea id="descEN" value={draft.descEN} placeholder="Optional. If empty, the product will use: Created by You." onChange={(event) => setDraft({ ...draft, descEN: event.target.value })} onBlur={() => { if (!draft.descFR && draft.descEN.trim().length >= 8) void translateDescription(); }} />
                 <div className="rounded-xl border border-white/10 bg-black/30 p-3 text-sm text-white/60">
                   <span className="font-bold text-white">French:</span> {draft.descFR || "Will be generated automatically."}
                 </div>
