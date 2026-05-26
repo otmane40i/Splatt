@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { LogoText } from "@/components/logo-text";
 import { dictionary } from "@/lib/i18n";
 import { useLanguage } from "@/components/language-provider";
+import { CartDrawer } from "@/components/cart-drawer";
 
 export function Navbar() {
   const [open, setOpen] = useState(false);
@@ -48,6 +49,7 @@ export function Navbar() {
           <Button asChild>
             <Link href="/shop">{t.cta}</Link>
           </Button>
+          <CartDrawer />
           <Button asChild variant="outline">
             <Link href="/admin/login">Admin</Link>
           </Button>
@@ -66,6 +68,7 @@ export function Navbar() {
           <Link href="/admin/login" onClick={() => setOpen(false)} className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-bold text-splatt-pink">
             Admin
           </Link>
+          <CartDrawer compact />
           <div className="flex gap-2">
             <Button variant={locale === "en" ? "default" : "outline"} onClick={() => setLocale("en")}>EN</Button>
             <Button variant={locale === "fr" ? "default" : "outline"} onClick={() => setLocale("fr")}>FR</Button>

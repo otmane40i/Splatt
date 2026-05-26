@@ -3,6 +3,7 @@ import { Inter, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 import { LanguageProvider } from "@/components/language-provider";
+import { CartProvider } from "@/components/cart-provider";
 import { Navbar } from "@/components/navbar";
 import { WhatsAppFloat } from "@/components/whatsapp-float";
 
@@ -31,9 +32,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className="dark">
       <body className={cn(inter.variable, space.variable, "font-sans")}>
         <LanguageProvider>
-          <Navbar />
-          {children}
-          <WhatsAppFloat />
+          <CartProvider>
+            <Navbar />
+            {children}
+            <WhatsAppFloat />
+          </CartProvider>
         </LanguageProvider>
       </body>
     </html>

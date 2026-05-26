@@ -1,16 +1,16 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { ImageIcon, RotateCcw, Sparkles } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Check, ImageIcon, Minus, Plus, RotateCcw, ShoppingBag, Sparkles } from "lucide-react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { OBJLoader } from "three/examples/jsm/loaders/OBJLoader.js";
 import { STLLoader } from "three/examples/jsm/loaders/STLLoader.js";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { OrderModal } from "@/components/order-modal";
 import { useLanguage } from "@/components/language-provider";
+import { useCart } from "@/components/cart-provider";
 import { formatMad } from "@/lib/utils";
 import type { StoreProduct } from "@/lib/catalog";
 
@@ -204,13 +204,12 @@ export function ProductCustomizer({ product }: { product: StoreProduct }) {
   const [selectedColors, setSelectedColors] = useState<string[]>([]);
   const [loadError, setLoadError] = useState("");
   const [viewMode, setViewMode] = useState<ProductViewMode>("image");
+  const [quantity, setQuantity] = useState(1);
+  const [added, setAdded] = useState(false);
   const { locale } = useLanguage();
+  const { addItem } = useCart();
   const name = locale === "fr" ? product.nameFR : product.nameEN;
   const description = locale === "fr" ? product.descFR : product.descEN;
-
-  const customizationNote = useMemo(() => {
-    return selectedColors.length > 0 ? `Selected pour colors: ${selectedColors.join(", ")}` : "";
-  }, [selectedColors]);
 
   useEffect(() => {
     const mount = mountRef.current;
@@ -371,6 +370,45 @@ export function ProductCustomizer({ product }: { product: StoreProduct }) {
     state.material.needsUpdate = true;
   }
 
+  function addToCart() {
+    addItem({ product, quantity, colors: selectedColors });
+    setAdded(true);
+    window.setTimeout(() => setAdded(false), 1800);
+  }
+
+  function PurchaseControls() {
+    return (
+      <div className="mt-7 space-y-5">
+        <div>
+          <p className="text-sm font-bold uppercase tracking-wide text-white/45">Paint colors in this box</p>
+          <p className="mt-1 text-sm text-white/60">{selectedColors.length > 0 ? selectedColors.join("  ") : "No colors selected yet. Add up to 3 colors or keep it blank."}</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          {product.model3d ? <Button type="button" onClick={pourPaint} disabled={selectedColors.length === 0}>Pour preview</Button> : null}
+          <div className="flex w-fit items-center rounded-full border border-white/10 bg-white/[0.04] p-1">
+            <button type="button" className="grid h-10 w-10 place-items-center rounded-full hover:bg-white/10" onClick={() => setQuantity((value) => Math.max(1, value - 1))} aria-label="Decrease quantity">
+              <Minus className="h-4 w-4" />
+            </button>
+            <span className="w-12 text-center font-black">{quantity}</span>
+            <button type="button" className="grid h-10 w-10 place-items-center rounded-full hover:bg-white/10" onClick={() => setQuantity((value) => Math.min(20, value + 1))} aria-label="Increase quantity">
+              <Plus className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+          <div className="flex items-center justify-between gap-4">
+            <span className="text-white/60">Box total</span>
+            <span className="font-space text-3xl font-black">{formatMad(product.price * quantity)}</span>
+          </div>
+          <Button type="button" className="mt-4 w-full" onClick={addToCart} disabled={!product.inStock}>
+            {added ? <Check className="h-4 w-4" /> : <ShoppingBag className="h-4 w-4" />}
+            {added ? "Added to cart" : "Add custom box to cart"}
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   if (!product.model3d) {
     return (
       <main className="container-page grid gap-10 py-12 lg:grid-cols-2">
@@ -382,7 +420,23 @@ export function ProductCustomizer({ product }: { product: StoreProduct }) {
           <h1 className="mt-5 font-space text-5xl font-black">{name}</h1>
           <p className="mt-4 text-lg text-white/60">{description}</p>
           <p className="mt-8 text-3xl font-black">{formatMad(product.price)}</p>
-          <div className="mt-8"><OrderModal product={product} /></div>
+          <div className="mt-7 flex flex-wrap gap-3" aria-label="Paint colors">
+            {paintColors.map((color) => {
+              const active = selectedColors.includes(color);
+              return (
+                <button
+                  key={color}
+                  type="button"
+                  aria-pressed={active}
+                  aria-label={`Select ${color}`}
+                  onClick={() => toggleColor(color)}
+                  className={`h-11 w-11 rounded-full border-2 transition ${active ? "border-white ring-2 ring-white ring-offset-4 ring-offset-black" : "border-white/25 hover:scale-105"}`}
+                  style={{ backgroundColor: color }}
+                />
+              );
+            })}
+          </div>
+          <PurchaseControls />
         </section>
       </main>
     );
@@ -438,10 +492,7 @@ export function ProductCustomizer({ product }: { product: StoreProduct }) {
           })}
         </div>
 
-        <div className="mt-7 flex flex-wrap gap-3">
-          <Button type="button" onClick={pourPaint} disabled={selectedColors.length === 0}>Pour the paint</Button>
-          <OrderModal product={product} customizationNote={customizationNote} />
-        </div>
+        <PurchaseControls />
       </section>
     </main>
   );
