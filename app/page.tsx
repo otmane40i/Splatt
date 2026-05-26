@@ -35,9 +35,11 @@ export default async function HomePage() {
         className="relative flex min-h-[calc(100vh-4rem)] items-center overflow-hidden bg-cover bg-center bg-no-repeat"
         style={{ backgroundImage: "url('/images/hero-banner.jpg')" }}
       >
-        <div className="absolute inset-0 bg-black/40" />
+        <div className="absolute inset-0 bg-black/45" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,rgba(0,0,0,0.12)_48%,rgba(0,0,0,0.6)_100%)]" />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/20" />
         <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-splatt-pink to-transparent" />
-        <div className="container-page relative z-10 flex min-h-[calc(100vh-4rem)] items-center justify-center py-16 text-center">
+        <div className="container-page relative z-10 flex min-h-[calc(100vh-4rem)] items-center justify-center pb-28 pt-10 text-center sm:pb-32">
           <Reveal className="mx-auto max-w-5xl">
             <h1 className="font-space text-5xl font-black leading-none tracking-normal text-white drop-shadow-2xl sm:text-7xl lg:text-8xl">
               No two are the same.
