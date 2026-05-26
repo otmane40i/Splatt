@@ -40,7 +40,7 @@ export function ProductsManager({ products }: { products: StoreProduct[] }) {
   function save() {
     if (!draft) return;
     setError("");
-    const slug = draft.slug || slugify(draft.nameEN);
+    const slug = draft.slug.trim().length >= 2 ? slugify(draft.slug) : slugify(draft.nameEN);
     const descEN = draft.descEN.trim();
     const method = draft.id ? "PUT" : "POST";
     const payload = {
@@ -60,8 +60,9 @@ export function ProductsManager({ products }: { products: StoreProduct[] }) {
         body: JSON.stringify(payload)
       });
       if (!response.ok) {
-        const data = (await response.json().catch(() => null)) as { error?: string } | null;
-        setError(data?.error ?? "Could not save product. Check the name, description, price, and slug.");
+        const data = (await response.json().catch(() => null)) as { error?: string; details?: string } | null;
+        const message = [data?.error, data?.details].filter(Boolean).join(": ");
+        setError(message || "Could not save product. Check the name, description, price, and slug.");
         return;
       }
       setDraft(null);
@@ -137,7 +138,15 @@ export function ProductsManager({ products }: { products: StoreProduct[] }) {
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">
-              <Field label="Product name" value={draft.nameEN} onChange={(value) => setDraft({ ...draft, nameEN: value, nameFR: value, slug: draft.slug || slugify(value) })} />
+              <Field
+                label="Product name"
+                value={draft.nameEN}
+                onChange={(value) => {
+                  const currentAutoSlug = slugify(draft.nameEN);
+                  const shouldUpdateSlug = !draft.slug || draft.slug === currentAutoSlug || draft.slug.length < 2;
+                  setDraft({ ...draft, nameEN: value, nameFR: value, slug: shouldUpdateSlug ? slugify(value) : draft.slug });
+                }}
+              />
               <Field label="Slug" value={draft.slug} onChange={(value) => setDraft({ ...draft, slug: slugify(value) })} />
               <Field label="Price MAD" type="number" value={String(draft.price)} onChange={(value) => setDraft({ ...draft, price: Number(value) })} />
               <Field label="Category" value={draft.category} onChange={(value) => setDraft({ ...draft, category: value })} />

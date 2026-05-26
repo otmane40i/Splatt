@@ -29,7 +29,10 @@ export async function GET() {
 export async function POST(request: Request) {
   if (!(await requireAdmin())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const parsed = productSchema.safeParse(await request.json());
-  if (!parsed.success) return NextResponse.json({ error: "Invalid product" }, { status: 400 });
+  if (!parsed.success) {
+    const details = parsed.error.issues.map((issue) => `${issue.path.join(".") || "product"} ${issue.message}`).join(", ");
+    return NextResponse.json({ error: "Invalid product", details }, { status: 400 });
+  }
   const productData = productWithDefaults(parsed.data);
   const firestoreProduct = await saveFirestoreProduct({ id: parsed.data.slug, ...productData });
   if (firestoreProduct) return NextResponse.json(firestoreProduct, { status: 201 });
@@ -42,7 +45,10 @@ export async function PUT(request: Request) {
   const body = (await request.json()) as { id?: string };
   if (!body.id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
   const parsed = productSchema.safeParse(body);
-  if (!parsed.success) return NextResponse.json({ error: "Invalid product" }, { status: 400 });
+  if (!parsed.success) {
+    const details = parsed.error.issues.map((issue) => `${issue.path.join(".") || "product"} ${issue.message}`).join(", ");
+    return NextResponse.json({ error: "Invalid product", details }, { status: 400 });
+  }
   const productData = productWithDefaults(parsed.data);
   const firestoreProduct = await saveFirestoreProduct({ id: body.id, ...productData });
   if (firestoreProduct) return NextResponse.json(firestoreProduct);
