@@ -25,12 +25,28 @@ model Product {
   price     Int
   image     String
   model3d   String?
+  stockQuantity Int?
+  bundleQuantity Int?
+  bundlePrice Int?
   category  String
   inStock   Boolean  @default(true)
   featured  Boolean  @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   orders    Order[]
+}
+
+model DiscountCode {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  type        String
+  value       Int
+  minTotal    Int      @default(0)
+  active      Boolean  @default(true)
+  usageLimit  Int?
+  usedCount   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
 model Order {

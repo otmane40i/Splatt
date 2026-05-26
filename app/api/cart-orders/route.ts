@@ -3,6 +3,8 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { getProducts, type StoreProduct } from "@/lib/catalog";
 import { createFirestoreOrder } from "@/lib/firestore-store";
+import { getDiscountCode } from "@/lib/discount-store";
+import { discountAmount, lineTotal } from "@/lib/pricing";
 
 const cartOrderSchema = z.object({
   customerName: z.string().min(2),
@@ -10,6 +12,7 @@ const cartOrderSchema = z.object({
   customerCity: z.string().min(2),
   customerAddress: z.string().min(5),
   notes: z.string().optional(),
+  discountCode: z.string().optional().nullable(),
   items: z.array(z.object({
     productId: z.string().min(1),
     quantity: z.coerce.number().int().min(1).max(20),
@@ -44,13 +47,22 @@ export async function POST(request: Request) {
   }
 
   const validLines = lines as Array<{ productId: string; quantity: number; colors: string[]; product: StoreProduct }>;
-  const totalPrice = validLines.reduce((total, line) => total + line.product.price * line.quantity, 0);
+  const unavailable = validLines.find((line) => line.product.stockQuantity !== null && line.quantity > line.product.stockQuantity);
+  if (unavailable) return NextResponse.json({ error: `${unavailable.product.nameEN} does not have enough stock` }, { status: 409 });
+
+  const subtotal = validLines.reduce((total, line) => total + lineTotal(line.product.price, line.quantity, line.product.bundleQuantity, line.product.bundlePrice), 0);
+  const discount = parsed.data.discountCode ? await getDiscountCode(parsed.data.discountCode) : null;
+  const discountValue = discountAmount(discount, subtotal);
+  const totalPrice = subtotal - discountValue;
 
   await Promise.all(validLines.map(async (line, index) => {
+    const linePrice = lineTotal(line.product.price, line.quantity, line.product.bundleQuantity, line.product.bundlePrice);
     const notes = [
       `Cart order: ${orderGroup}`,
       `Line ${index + 1} of ${validLines.length}`,
       `Paint colors in box: ${colorLine(line.colors)}`,
+      line.product.bundleQuantity && line.product.bundlePrice ? `Bundle deal: buy ${line.product.bundleQuantity} for ${line.product.bundlePrice} MAD` : "",
+      discount ? `Cart discount: ${discount.code} (-${discountValue} MAD on cart)` : "",
       parsed.data.notes ? `Customer notes: ${parsed.data.notes}` : ""
     ].filter(Boolean).join("\n");
 
@@ -64,7 +76,7 @@ export async function POST(request: Request) {
       notes,
       productName: line.product.nameEN,
       productPrice: line.product.price,
-      totalPrice: line.product.price * line.quantity
+      totalPrice: linePrice
     };
 
     const saved = await createFirestoreOrder({ ...orderData, status: "pending" });
@@ -80,11 +92,14 @@ export async function POST(request: Request) {
     "Salam SPLATT., I want to confirm this cart order:",
     `Order: ${orderGroup}`,
     "",
-    ...validLines.flatMap((line, index) => [
-      `${index + 1}. ${line.product.nameEN} x${line.quantity} - ${line.product.price * line.quantity} MAD`,
-      `   Paint colors: ${colorLine(line.colors)}`
-    ]),
+    ...validLines.flatMap((line, index) => ([
+      `${index + 1}. ${line.product.nameEN} x${line.quantity} - ${lineTotal(line.product.price, line.quantity, line.product.bundleQuantity, line.product.bundlePrice)} MAD`,
+      `   Paint colors: ${colorLine(line.colors)}`,
+      line.product.bundleQuantity && line.product.bundlePrice ? `   Deal: buy ${line.product.bundleQuantity} for ${line.product.bundlePrice} MAD` : ""
+    ].filter(Boolean))),
     "",
+    `Subtotal: ${subtotal} MAD`,
+    discount ? `Discount ${discount.code}: -${discountValue} MAD` : "",
     `Total: ${totalPrice} MAD`,
     `Name: ${parsed.data.customerName}`,
     `Phone: ${parsed.data.customerPhone}`,

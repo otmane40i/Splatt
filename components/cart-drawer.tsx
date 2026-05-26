@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useTransition } from "react";
-import { Minus, Plus, ShoppingBag, Trash2 } from "lucide-react";
+import { useMemo, useState, useTransition } from "react";
+import { BadgePercent, Minus, Plus, ShoppingBag, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -10,16 +10,43 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useCart } from "@/components/cart-provider";
 import { formatMad } from "@/lib/utils";
+import { cartSubtotal, discountAmount, lineTotal, type DiscountCode } from "@/lib/pricing";
 
 type CartOrderResponse = {
   whatsappUrl: string;
 };
 
+type DiscountValidationResponse = {
+  discount: DiscountCode;
+  amount: number;
+};
+
 export function CartDrawer({ compact = false }: { compact?: boolean }) {
-  const { items, itemCount, totalPrice, removeItem, updateQuantity, clearCart } = useCart();
+  const { items, itemCount, removeItem, updateQuantity, clearCart } = useCart();
   const [open, setOpen] = useState(false);
   const [error, setError] = useState("");
+  const [code, setCode] = useState("");
+  const [discount, setDiscount] = useState<DiscountCode | null>(null);
   const [isPending, startTransition] = useTransition();
+  const subtotal = useMemo(() => cartSubtotal(items), [items]);
+  const discountValue = discountAmount(discount, subtotal);
+  const totalPrice = Math.max(0, subtotal - discountValue);
+
+  async function applyDiscount() {
+    setError("");
+    const response = await fetch("/api/discounts/validate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code, subtotal })
+    });
+    if (!response.ok) {
+      setDiscount(null);
+      setError("This discount code is not available for this cart.");
+      return;
+    }
+    const result = (await response.json()) as DiscountValidationResponse;
+    setDiscount(result.discount);
+  }
 
   function checkout(formData: FormData) {
     setError("");
@@ -33,6 +60,7 @@ export function CartDrawer({ compact = false }: { compact?: boolean }) {
           customerCity: formData.get("customerCity"),
           customerAddress: formData.get("customerAddress"),
           notes: formData.get("notes"),
+          discountCode: discount?.code ?? null,
           items: items.map((item) => ({
             productId: item.product.id,
             quantity: item.quantity,
@@ -91,6 +119,9 @@ export function CartDrawer({ compact = false }: { compact?: boolean }) {
                       <div>
                         <h3 className="font-space text-lg font-black">{item.product.name}</h3>
                         <p className="text-sm text-white/55">{formatMad(item.product.price)} each</p>
+                        {item.product.bundleQuantity && item.product.bundlePrice ? (
+                          <p className="mt-1 text-xs font-bold text-splatt-teal">Deal: buy {item.product.bundleQuantity} for {formatMad(item.product.bundlePrice)}</p>
+                        ) : null}
                       </div>
                       <button type="button" className="rounded-full p-2 text-white/45 hover:bg-white/10 hover:text-white" onClick={() => removeItem(item.key)} aria-label="Remove item">
                         <Trash2 className="h-4 w-4" />
@@ -111,7 +142,7 @@ export function CartDrawer({ compact = false }: { compact?: boolean }) {
                           <Plus className="h-3.5 w-3.5" />
                         </button>
                       </div>
-                      <p className="font-black">{formatMad(item.product.price * item.quantity)}</p>
+                      <p className="font-black">{formatMad(lineTotal(item.product.price, item.quantity, item.product.bundleQuantity, item.product.bundlePrice))}</p>
                     </div>
                   </div>
                 </article>
@@ -120,6 +151,20 @@ export function CartDrawer({ compact = false }: { compact?: boolean }) {
 
             <form action={checkout} className="grid h-fit gap-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
               <div className="flex items-center justify-between border-b border-white/10 pb-4">
+                <span className="text-white/60">Subtotal</span>
+                <span className="font-space text-2xl font-black">{formatMad(subtotal)}</span>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="discount-code">Discount code</Label>
+                <div className="grid grid-cols-[1fr_auto] gap-2">
+                  <Input id="discount-code" value={code} onChange={(event) => setCode(event.target.value.toUpperCase())} placeholder="SPLATT10" />
+                  <Button type="button" variant="outline" onClick={applyDiscount} disabled={!code || subtotal <= 0}>
+                    <BadgePercent className="h-4 w-4" /> Apply
+                  </Button>
+                </div>
+                {discount ? <p className="text-sm font-bold text-splatt-teal">{discount.code} applied: -{formatMad(discountValue)}</p> : null}
+              </div>
+              <div className="flex items-center justify-between rounded-2xl bg-white/[0.05] p-4">
                 <span className="text-white/60">Total</span>
                 <span className="font-space text-3xl font-black text-splatt-teal">{formatMad(totalPrice)}</span>
               </div>

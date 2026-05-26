@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import type { StoreProduct } from "@/lib/catalog";
 import { cartItemKey, type CartItem } from "@/lib/cart";
+import { cartSubtotal } from "@/lib/pricing";
 
 type AddCartItemInput = {
   product: StoreProduct;
@@ -57,7 +58,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     return {
       items,
       itemCount: items.reduce((total, item) => total + item.quantity, 0),
-      totalPrice: items.reduce((total, item) => total + item.product.price * item.quantity, 0),
+      totalPrice: cartSubtotal(items),
       addItem(input) {
         const colors = input.colors.slice(0, 3);
         const key = cartItemKey(input.product.id, colors);
@@ -75,7 +76,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
                 slug: input.product.slug,
                 name: input.product.nameEN,
                 price: input.product.price,
-                image: input.product.image
+                image: input.product.image,
+                stockQuantity: input.product.stockQuantity,
+                bundleQuantity: input.product.bundleQuantity,
+                bundlePrice: input.product.bundlePrice
               },
               quantity: normalizeQuantity(input.quantity),
               colors

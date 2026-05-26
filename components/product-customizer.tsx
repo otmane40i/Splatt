@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/components/language-provider";
 import { useCart } from "@/components/cart-provider";
 import { formatMad } from "@/lib/utils";
+import { lineTotal } from "@/lib/pricing";
 import type { StoreProduct } from "@/lib/catalog";
 
 const paintColors = ["#FF2E93", "#1FA8A0", "#FF6B1A", "#F1C40F", "#9B59B6", "#3498DB", "#F0F0F0", "#222222"];
@@ -390,7 +391,7 @@ export function ProductCustomizer({ product }: { product: StoreProduct }) {
               <Minus className="h-4 w-4" />
             </button>
             <span className="w-12 text-center font-black">{quantity}</span>
-            <button type="button" className="grid h-10 w-10 place-items-center rounded-full hover:bg-white/10" onClick={() => setQuantity((value) => Math.min(20, value + 1))} aria-label="Increase quantity">
+            <button type="button" className="grid h-10 w-10 place-items-center rounded-full hover:bg-white/10" onClick={() => setQuantity((value) => Math.min(product.stockQuantity ?? 20, 20, value + 1))} aria-label="Increase quantity">
               <Plus className="h-4 w-4" />
             </button>
           </div>
@@ -398,9 +399,13 @@ export function ProductCustomizer({ product }: { product: StoreProduct }) {
         <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
           <div className="flex items-center justify-between gap-4">
             <span className="text-white/60">Box total</span>
-            <span className="font-space text-3xl font-black">{formatMad(product.price * quantity)}</span>
+            <span className="font-space text-3xl font-black">{formatMad(lineTotal(product.price, quantity, product.bundleQuantity, product.bundlePrice))}</span>
           </div>
-          <Button type="button" className="mt-4 w-full" onClick={addToCart} disabled={!product.inStock}>
+          {product.bundleQuantity && product.bundlePrice ? (
+            <p className="mt-2 text-sm font-bold text-splatt-teal">Deal active: buy {product.bundleQuantity} for {formatMad(product.bundlePrice)}</p>
+          ) : null}
+          {product.stockQuantity !== null ? <p className="mt-2 text-xs text-white/45">{product.stockQuantity} available</p> : null}
+          <Button type="button" className="mt-4 w-full" onClick={addToCart} disabled={!product.inStock || product.stockQuantity === 0}>
             {added ? <Check className="h-4 w-4" /> : <ShoppingBag className="h-4 w-4" />}
             {added ? "Added to cart" : "Add custom box to cart"}
           </Button>

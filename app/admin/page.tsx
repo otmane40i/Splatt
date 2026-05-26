@@ -2,12 +2,14 @@ import { prisma } from "@/lib/prisma";
 import { formatMad } from "@/lib/utils";
 import { getProducts, sampleProducts } from "@/lib/catalog";
 import { getFirestoreOrders } from "@/lib/firestore-store";
+import { getDiscountCodes } from "@/lib/discount-store";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminDashboard() {
   const firestoreOrders = await getFirestoreOrders().catch(() => null);
   const products = await getProducts().catch(() => sampleProducts);
+  const discounts = await getDiscountCodes().catch(() => []);
 
   if (firestoreOrders) {
     const totalOrders = firestoreOrders.length;
@@ -20,10 +22,12 @@ export default async function AdminDashboard() {
       ["Total orders", totalOrders.toString()],
       ["Pending", pending.toString()],
       ["Revenue", formatMad(revenue)],
-      ["Active products", products.filter((product) => product.inStock).length.toString()]
+      ["Active products", products.filter((product) => product.inStock).length.toString()],
+      ["Active discounts", discounts.filter((discount) => discount.active).length.toString()],
+      ["Low stock", products.filter((product) => product.stockQuantity !== null && product.stockQuantity <= 3).length.toString()]
     ];
 
-    return <DashboardView stats={stats} recentOrders={recentOrders} />;
+    return <DashboardView stats={stats} recentOrders={recentOrders} lowStock={products.filter((product) => product.stockQuantity !== null && product.stockQuantity <= 3)} />;
   }
 
   try {
@@ -56,15 +60,17 @@ export default async function AdminDashboard() {
 
 function DashboardView({
   stats,
-  recentOrders
+  recentOrders,
+  lowStock = []
 }: {
   stats: string[][];
   recentOrders: Array<{ id: string; customerName: string; productName: string; totalPrice: number; status: string }>;
+  lowStock?: Array<{ id: string; nameEN: string; stockQuantity: number | null }>;
 }) {
   return (
     <div>
       <h1 className="font-space text-4xl font-black">Dashboard</h1>
-      <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {stats.map(([label, value]) => (
           <div key={label} className="glass p-5">
             <p className="text-sm text-white/55">{label}</p>
@@ -72,6 +78,19 @@ function DashboardView({
           </div>
         ))}
       </div>
+      {lowStock.length > 0 ? (
+        <div className="glass mt-6 p-5">
+          <h2 className="font-space text-2xl font-bold">Low stock</h2>
+          <div className="mt-4 grid gap-3 md:grid-cols-3">
+            {lowStock.map((product) => (
+              <div key={product.id} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                <p className="font-bold">{product.nameEN}</p>
+                <p className="mt-1 text-sm text-splatt-orange">{product.stockQuantity} left</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
       <div className="glass mt-6 overflow-hidden">
         <div className="border-b border-white/10 p-5">
           <h2 className="font-space text-2xl font-bold">Recent orders</h2>

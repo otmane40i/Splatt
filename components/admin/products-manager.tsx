@@ -23,6 +23,9 @@ const blankProduct: ProductDraft = {
   price: 300,
   image: "/products/bear.svg",
   model3d: null,
+  stockQuantity: 10,
+  bundleQuantity: 2,
+  bundlePrice: null,
   category: "Figures",
   inStock: true,
   featured: false
@@ -40,7 +43,10 @@ export function ProductsManager({ products }: { products: StoreProduct[] }) {
     const payload = {
       ...draft,
       nameFR: draft.nameEN,
-      descFR: draft.descFR || draft.descEN
+      descFR: draft.descFR || draft.descEN,
+      stockQuantity: draft.stockQuantity ?? null,
+      bundleQuantity: draft.bundlePrice ? draft.bundleQuantity ?? 2 : null,
+      bundlePrice: draft.bundlePrice ?? null
     };
     startTransition(async () => {
       await fetch("/api/products", {
@@ -96,7 +102,7 @@ export function ProductsManager({ products }: { products: StoreProduct[] }) {
         <Button onClick={() => setDraft(blankProduct)}><Plus className="h-4 w-4" />Add</Button>
       </div>
       <div className="glass mt-6 overflow-x-auto">
-        <table className="w-full min-w-[840px] text-left text-sm">
+        <table className="w-full min-w-[1040px] text-left text-sm">
           <thead className="border-b border-white/10 text-white/50">
             <tr>
               <th className="p-4">Name</th>
@@ -104,6 +110,8 @@ export function ProductsManager({ products }: { products: StoreProduct[] }) {
               <th className="p-4">Price</th>
               <th className="p-4">Category</th>
               <th className="p-4">3D</th>
+              <th className="p-4">Available</th>
+              <th className="p-4">Bundle</th>
               <th className="p-4">Stock</th>
               <th className="p-4 text-right">Actions</th>
             </tr>
@@ -116,6 +124,8 @@ export function ProductsManager({ products }: { products: StoreProduct[] }) {
                 <td className="p-4">{formatMad(product.price)}</td>
                 <td className="p-4">{product.category}</td>
                 <td className="p-4">{product.model3d ? "Yes" : "No"}</td>
+                <td className="p-4">{product.stockQuantity ?? "No limit"}</td>
+                <td className="p-4">{product.bundleQuantity && product.bundlePrice ? `${product.bundleQuantity} for ${formatMad(product.bundlePrice)}` : "None"}</td>
                 <td className="p-4">{product.inStock ? "Yes" : "No"}</td>
                 <td className="p-4">
                   <div className="flex justify-end gap-2">
@@ -153,6 +163,15 @@ export function ProductsManager({ products }: { products: StoreProduct[] }) {
                 <Field label="Slug" value={draft.slug} onChange={(value) => setDraft({ ...draft, slug: slugify(value) })} />
                 <Field label="Price MAD" type="number" value={String(draft.price)} onChange={(value) => setDraft({ ...draft, price: Number(value) })} />
                 <Field label="Category" value={draft.category} onChange={(value) => setDraft({ ...draft, category: value })} />
+                <Field label="Available units" type="number" value={String(draft.stockQuantity ?? 0)} onChange={(value) => setDraft({ ...draft, stockQuantity: Math.max(0, Number(value)) })} />
+                <div className="grid gap-2">
+                  <Label>Buy-together deal</Label>
+                  <div className="grid grid-cols-[0.7fr_1fr] gap-2">
+                    <Input type="number" min={2} value={String(draft.bundleQuantity ?? 2)} onChange={(event) => setDraft({ ...draft, bundleQuantity: Math.max(2, Number(event.target.value)) })} aria-label="Bundle quantity" />
+                    <Input type="number" min={0} value={String(draft.bundlePrice ?? "")} placeholder="Price MAD" onChange={(event) => setDraft({ ...draft, bundlePrice: event.target.value ? Number(event.target.value) : null })} aria-label="Bundle price" />
+                  </div>
+                  <p className="text-xs text-white/45">Example: quantity 2, price 650 means buy 2 for 650 MAD.</p>
+                </div>
 
                 <div className="grid gap-2 md:col-span-2">
                   <Label htmlFor="model3d" className="flex items-center gap-2"><LinkIcon className="h-4 w-4" /> 3D model Firebase URL</Label>

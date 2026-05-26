@@ -4,6 +4,9 @@ export type CartProduct = {
   name: string;
   price: number;
   image: string;
+  stockQuantity: number | null;
+  bundleQuantity: number | null;
+  bundlePrice: number | null;
 };
 
 export type CartItem = {

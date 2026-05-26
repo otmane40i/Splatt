@@ -8,6 +8,9 @@ export type StoreProduct = {
   price: number;
   image: string;
   model3d: string | null;
+  stockQuantity: number | null;
+  bundleQuantity: number | null;
+  bundlePrice: number | null;
   category: string;
   inStock: boolean;
   featured: boolean;
@@ -33,6 +36,9 @@ export const sampleProducts: StoreProduct[] = [
     price: 350,
     image: "/products/bear.svg",
     model3d: "/products/bear.stl",
+    stockQuantity: 12,
+    bundleQuantity: 2,
+    bundlePrice: 650,
     category: "Figures",
     inStock: true,
     featured: true,
@@ -49,6 +55,9 @@ export const sampleProducts: StoreProduct[] = [
     price: 300,
     image: "/products/pup.svg",
     model3d: null,
+    stockQuantity: 16,
+    bundleQuantity: 2,
+    bundlePrice: 550,
     category: "Figures",
     inStock: true,
     featured: true,
@@ -65,6 +74,9 @@ export const sampleProducts: StoreProduct[] = [
     price: 450,
     image: "/products/phantom.svg",
     model3d: null,
+    stockQuantity: 8,
+    bundleQuantity: null,
+    bundlePrice: null,
     category: "Premium",
     inStock: true,
     featured: true,
@@ -81,6 +93,9 @@ export const sampleProducts: StoreProduct[] = [
     price: 500,
     image: "/products/atlas.svg",
     model3d: null,
+    stockQuantity: 6,
+    bundleQuantity: null,
+    bundlePrice: null,
     category: "Premium",
     inStock: true,
     featured: true,

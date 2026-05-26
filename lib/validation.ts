@@ -10,9 +10,25 @@ export const productSchema = z.object({
   price: z.coerce.number().int().positive(),
   image: z.string().min(1),
   model3d: z.string().optional().nullable(),
+  stockQuantity: z.coerce.number().int().min(0).optional().nullable(),
+  bundleQuantity: z.coerce.number().int().min(2).optional().nullable(),
+  bundlePrice: z.coerce.number().int().positive().optional().nullable(),
   category: z.string().min(2),
   inStock: z.coerce.boolean(),
   featured: z.coerce.boolean()
+});
+
+export const discountCodeSchema = z.object({
+  code: z.string().min(2).max(24).transform((value) => value.trim().toUpperCase().replace(/[^A-Z0-9-]/g, "")),
+  type: z.enum(["percentage", "fixed"]),
+  value: z.coerce.number().int().positive(),
+  minTotal: z.coerce.number().int().min(0).default(0),
+  active: z.coerce.boolean(),
+  usageLimit: z.coerce.number().int().positive().optional().nullable()
+}).superRefine((value, context) => {
+  if (value.type === "percentage" && value.value > 90) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["value"], message: "Percentage discounts cannot exceed 90%." });
+  }
 });
 
 export const orderSchema = z.object({
