@@ -32,12 +32,12 @@ export default async function HomePage() {
     <main>
       <BrandSplash />
       <section
-        className="relative flex h-[calc(100svh-4rem)] min-h-[520px] items-start overflow-hidden bg-cover bg-center bg-no-repeat sm:min-h-[calc(100vh-4rem)] sm:items-center"
+        className="relative flex h-[calc(100svh-4rem)] min-h-[520px] items-center overflow-hidden bg-cover bg-center bg-no-repeat sm:min-h-[calc(100vh-4rem)]"
         style={{ backgroundImage: "url('/images/hero-banner.jpg')" }}
       >
         <div className="absolute inset-0 bg-black/50 sm:bg-black/40" />
         <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-splatt-pink to-transparent" />
-        <div className="container-page relative z-10 flex h-full items-start justify-center pt-12 text-center sm:min-h-[calc(100vh-4rem)] sm:items-center sm:py-16">
+        <div className="container-page relative z-10 flex h-full items-center justify-center py-10 text-center sm:min-h-[calc(100vh-4rem)] sm:py-16">
           <Reveal className="mx-auto max-w-5xl">
             <h1 className="font-space text-4xl font-black leading-none tracking-normal text-white drop-shadow-2xl min-[380px]:text-5xl sm:text-7xl lg:text-8xl">
               No two are the same.
