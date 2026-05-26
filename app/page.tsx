@@ -19,7 +19,7 @@ export default async function HomePage() {
       text: "Pick your favorite figurine and colors."
     },
     {
-      image: "/how-it-works/paint-it.png",
+      image: "/how-it-works/paint-it.jpeg",
       title: "Paint it your way",
       text: "Pour your colors and create something uniquely yours."
     },
