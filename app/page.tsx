@@ -24,7 +24,7 @@ export default async function HomePage() {
       text: "Pour your colors and create something uniquely yours."
     },
     {
-      image: "/how-it-works/dry-display.png",
+      image: "/how-it-works/dry-display.jpeg",
       title: "Dry & display",
       text: "Let it dry, then display it, gift it, or share it."
     }
