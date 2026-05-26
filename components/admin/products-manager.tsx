@@ -35,25 +35,36 @@ export function ProductsManager({ products }: { products: StoreProduct[] }) {
   const [draft, setDraft] = useState<ProductDraft | null>(null);
   const [isPending, startTransition] = useTransition();
   const [isTranslating, setIsTranslating] = useState(false);
+  const [error, setError] = useState("");
   const router = useRouter();
 
   function save() {
     if (!draft) return;
+    setError("");
+    const slug = draft.slug || slugify(draft.nameEN);
+    const descEN = draft.descEN.trim();
     const method = draft.id ? "PUT" : "POST";
     const payload = {
       ...draft,
+      slug,
       nameFR: draft.nameEN,
-      descFR: draft.descFR || draft.descEN,
+      descEN,
+      descFR: draft.descFR || descEN,
       stockQuantity: draft.stockQuantity ?? null,
       bundleQuantity: draft.bundlePrice ? draft.bundleQuantity ?? 2 : null,
       bundlePrice: draft.bundlePrice ?? null
     };
     startTransition(async () => {
-      await fetch("/api/products", {
+      const response = await fetch("/api/products", {
         method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
       });
+      if (!response.ok) {
+        const data = (await response.json().catch(() => null)) as { error?: string } | null;
+        setError(data?.error ?? "Could not save product. Check the name, description, price, and slug.");
+        return;
+      }
       setDraft(null);
       router.refresh();
     });
@@ -99,7 +110,7 @@ export function ProductsManager({ products }: { products: StoreProduct[] }) {
     <div>
       <div className="flex items-center justify-between gap-4">
         <h1 className="font-space text-4xl font-black">Products</h1>
-        <Button onClick={() => setDraft(blankProduct)}><Plus className="h-4 w-4" />Add</Button>
+        <Button onClick={() => { setError(""); setDraft(blankProduct); }}><Plus className="h-4 w-4" />Add</Button>
       </div>
       <div className="glass mt-6 overflow-x-auto">
         <table className="w-full min-w-[1040px] text-left text-sm">
@@ -129,7 +140,7 @@ export function ProductsManager({ products }: { products: StoreProduct[] }) {
                 <td className="p-4">{product.inStock ? "Yes" : "No"}</td>
                 <td className="p-4">
                   <div className="flex justify-end gap-2">
-                    <Button size="icon" variant="outline" onClick={() => setDraft(product)}><Edit className="h-4 w-4" /></Button>
+                    <Button size="icon" variant="outline" onClick={() => { setError(""); setDraft(product); }}><Edit className="h-4 w-4" /></Button>
                     <Button size="icon" variant="destructive" onClick={() => remove(product.id)} disabled={isPending}><Trash2 className="h-4 w-4" /></Button>
                   </div>
                 </td>
@@ -194,6 +205,7 @@ export function ProductsManager({ products }: { products: StoreProduct[] }) {
 
                 <Toggle label="In stock" checked={draft.inStock} onChange={(value) => setDraft({ ...draft, inStock: value })} />
                 <Toggle label="Featured" checked={draft.featured} onChange={(value) => setDraft({ ...draft, featured: value })} />
+                {error ? <p className="md:col-span-2 rounded-xl border border-red-400/20 bg-red-500/10 p-3 text-sm font-bold text-red-200">{error}</p> : null}
                 <Button className="md:col-span-2" onClick={save} disabled={isPending || isTranslating}>{isPending ? "Saving..." : "Save product"}</Button>
               </div>
             </div>
