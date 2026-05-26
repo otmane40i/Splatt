@@ -14,7 +14,7 @@ export default async function HomePage() {
   const products = await getFeaturedProducts();
   const steps = [
     {
-      image: "/how-it-works/choose-figurine.png",
+      image: "/how-it-works/choose-figurine.jpeg",
       title: "Choose your figurine",
       text: "Pick your favorite figurine and colors."
     },
