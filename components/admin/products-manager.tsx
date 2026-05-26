@@ -4,7 +4,6 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Edit, ImageIcon, Languages, LinkIcon, Plus, Trash2, UploadCloud } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -112,6 +111,73 @@ export function ProductsManager({ products }: { products: StoreProduct[] }) {
         <h1 className="font-space text-4xl font-black">Products</h1>
         <Button onClick={() => { setError(""); setDraft(blankProduct); }}><Plus className="h-4 w-4" />Add</Button>
       </div>
+      {draft ? (
+        <section className="glass mt-6 p-5">
+          <div className="mb-5 flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm font-black uppercase text-splatt-pink">{draft.id ? "Edit product" : "Add product"}</p>
+              <h2 className="font-space text-3xl font-black">{draft.nameEN || "New SPLATT. kit"}</h2>
+            </div>
+            <Button variant="outline" onClick={() => setDraft(null)}>Cancel</Button>
+          </div>
+          <div className="grid gap-5 lg:grid-cols-[0.85fr_1.15fr]">
+            <div className="space-y-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+              <div className="relative aspect-square overflow-hidden rounded-2xl border border-white/10 bg-black/50">
+                {draft.image ? (
+                  <div className="h-full w-full bg-contain bg-center bg-no-repeat" style={{ backgroundImage: `url("${draft.image}")` }} />
+                ) : (
+                  <div className="grid h-full place-items-center text-white/40"><ImageIcon className="h-10 w-10" /></div>
+                )}
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="upload" className="flex items-center gap-2"><UploadCloud className="h-4 w-4" /> Product picture</Label>
+                <Input id="upload" type="file" accept="image/*" onChange={(event) => event.target.files?.[0] ? upload(event.target.files[0]) : undefined} />
+              </div>
+              <Field label="Image URL" value={draft.image} onChange={(value) => setDraft({ ...draft, image: value })} />
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <Field label="Product name" value={draft.nameEN} onChange={(value) => setDraft({ ...draft, nameEN: value, nameFR: value, slug: draft.slug || slugify(value) })} />
+              <Field label="Slug" value={draft.slug} onChange={(value) => setDraft({ ...draft, slug: slugify(value) })} />
+              <Field label="Price MAD" type="number" value={String(draft.price)} onChange={(value) => setDraft({ ...draft, price: Number(value) })} />
+              <Field label="Category" value={draft.category} onChange={(value) => setDraft({ ...draft, category: value })} />
+              <Field label="Available units" type="number" value={String(draft.stockQuantity ?? 0)} onChange={(value) => setDraft({ ...draft, stockQuantity: Math.max(0, Number(value)) })} />
+              <div className="grid gap-2">
+                <Label>Buy-together deal</Label>
+                <div className="grid grid-cols-[0.7fr_1fr] gap-2">
+                  <Input type="number" min={2} value={String(draft.bundleQuantity ?? 2)} onChange={(event) => setDraft({ ...draft, bundleQuantity: Math.max(2, Number(event.target.value)) })} aria-label="Bundle quantity" />
+                  <Input type="number" min={0} value={String(draft.bundlePrice ?? "")} placeholder="Price MAD" onChange={(event) => setDraft({ ...draft, bundlePrice: event.target.value ? Number(event.target.value) : null })} aria-label="Bundle price" />
+                </div>
+                <p className="text-xs text-white/45">Example: quantity 2, price 650 means buy 2 for 650 MAD.</p>
+              </div>
+
+              <div className="grid gap-2 md:col-span-2">
+                <Label htmlFor="model3d" className="flex items-center gap-2"><LinkIcon className="h-4 w-4" /> 3D model Firebase URL</Label>
+                <Input id="model3d" value={draft.model3d ?? ""} placeholder="https://firebasestorage.googleapis.com/..." onChange={(event) => setDraft({ ...draft, model3d: event.target.value || null })} />
+                <p className="text-xs text-white/45">Upload STL/OBJ in Firebase Storage, then paste the download URL here.</p>
+              </div>
+
+              <div className="grid gap-2 md:col-span-2">
+                <div className="flex items-center justify-between gap-3">
+                  <Label htmlFor="descEN">Description</Label>
+                  <Button type="button" size="sm" variant="outline" onClick={translateDescription} disabled={isTranslating || draft.descEN.trim().length < 8}>
+                    <Languages className="h-4 w-4" /> {isTranslating ? "Translating..." : "Auto French"}
+                  </Button>
+                </div>
+                <Textarea id="descEN" value={draft.descEN} onChange={(event) => setDraft({ ...draft, descEN: event.target.value })} onBlur={() => { if (!draft.descFR && draft.descEN.trim().length >= 8) void translateDescription(); }} />
+                <div className="rounded-xl border border-white/10 bg-black/30 p-3 text-sm text-white/60">
+                  <span className="font-bold text-white">French:</span> {draft.descFR || "Will be generated automatically."}
+                </div>
+              </div>
+
+              <Toggle label="In stock" checked={draft.inStock} onChange={(value) => setDraft({ ...draft, inStock: value })} />
+              <Toggle label="Featured" checked={draft.featured} onChange={(value) => setDraft({ ...draft, featured: value })} />
+              {error ? <p className="md:col-span-2 rounded-xl border border-red-400/20 bg-red-500/10 p-3 text-sm font-bold text-red-200">{error}</p> : null}
+              <Button className="md:col-span-2" onClick={save} disabled={isPending || isTranslating}>{isPending ? "Saving..." : "Save product"}</Button>
+            </div>
+          </div>
+        </section>
+      ) : null}
       <div className="glass mt-6 overflow-x-auto">
         <table className="w-full min-w-[1040px] text-left text-sm">
           <thead className="border-b border-white/10 text-white/50">
@@ -149,69 +215,6 @@ export function ProductsManager({ products }: { products: StoreProduct[] }) {
           </tbody>
         </table>
       </div>
-      <Dialog open={Boolean(draft)} onOpenChange={(open) => !open && setDraft(null)}>
-        <DialogContent className="max-w-4xl">
-          <DialogHeader><DialogTitle>{draft?.id ? "Edit product" : "Add product"}</DialogTitle></DialogHeader>
-          {draft ? (
-            <div className="grid gap-5 lg:grid-cols-[0.85fr_1.15fr]">
-              <div className="space-y-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                <div className="relative aspect-square overflow-hidden rounded-2xl border border-white/10 bg-black/50">
-                  {draft.image ? (
-                    <div className="h-full w-full bg-contain bg-center bg-no-repeat" style={{ backgroundImage: `url("${draft.image}")` }} />
-                  ) : (
-                    <div className="grid h-full place-items-center text-white/40"><ImageIcon className="h-10 w-10" /></div>
-                  )}
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="upload" className="flex items-center gap-2"><UploadCloud className="h-4 w-4" /> Product picture</Label>
-                  <Input id="upload" type="file" accept="image/*" onChange={(event) => event.target.files?.[0] ? upload(event.target.files[0]) : undefined} />
-                </div>
-                <Field label="Image URL" value={draft.image} onChange={(value) => setDraft({ ...draft, image: value })} />
-              </div>
-
-              <div className="grid gap-4 md:grid-cols-2">
-                <Field label="Product name" value={draft.nameEN} onChange={(value) => setDraft({ ...draft, nameEN: value, nameFR: value, slug: draft.slug || slugify(value) })} />
-                <Field label="Slug" value={draft.slug} onChange={(value) => setDraft({ ...draft, slug: slugify(value) })} />
-                <Field label="Price MAD" type="number" value={String(draft.price)} onChange={(value) => setDraft({ ...draft, price: Number(value) })} />
-                <Field label="Category" value={draft.category} onChange={(value) => setDraft({ ...draft, category: value })} />
-                <Field label="Available units" type="number" value={String(draft.stockQuantity ?? 0)} onChange={(value) => setDraft({ ...draft, stockQuantity: Math.max(0, Number(value)) })} />
-                <div className="grid gap-2">
-                  <Label>Buy-together deal</Label>
-                  <div className="grid grid-cols-[0.7fr_1fr] gap-2">
-                    <Input type="number" min={2} value={String(draft.bundleQuantity ?? 2)} onChange={(event) => setDraft({ ...draft, bundleQuantity: Math.max(2, Number(event.target.value)) })} aria-label="Bundle quantity" />
-                    <Input type="number" min={0} value={String(draft.bundlePrice ?? "")} placeholder="Price MAD" onChange={(event) => setDraft({ ...draft, bundlePrice: event.target.value ? Number(event.target.value) : null })} aria-label="Bundle price" />
-                  </div>
-                  <p className="text-xs text-white/45">Example: quantity 2, price 650 means buy 2 for 650 MAD.</p>
-                </div>
-
-                <div className="grid gap-2 md:col-span-2">
-                  <Label htmlFor="model3d" className="flex items-center gap-2"><LinkIcon className="h-4 w-4" /> 3D model Firebase URL</Label>
-                  <Input id="model3d" value={draft.model3d ?? ""} placeholder="https://firebasestorage.googleapis.com/..." onChange={(event) => setDraft({ ...draft, model3d: event.target.value || null })} />
-                  <p className="text-xs text-white/45">Upload STL/OBJ in Firebase Storage, then paste the download URL here.</p>
-                </div>
-
-                <div className="grid gap-2 md:col-span-2">
-                  <div className="flex items-center justify-between gap-3">
-                    <Label htmlFor="descEN">Description</Label>
-                    <Button type="button" size="sm" variant="outline" onClick={translateDescription} disabled={isTranslating || draft.descEN.trim().length < 8}>
-                      <Languages className="h-4 w-4" /> {isTranslating ? "Translating..." : "Auto French"}
-                    </Button>
-                  </div>
-                  <Textarea id="descEN" value={draft.descEN} onChange={(event) => setDraft({ ...draft, descEN: event.target.value })} onBlur={() => { if (!draft.descFR && draft.descEN.trim().length >= 8) void translateDescription(); }} />
-                  <div className="rounded-xl border border-white/10 bg-black/30 p-3 text-sm text-white/60">
-                    <span className="font-bold text-white">French:</span> {draft.descFR || "Will be generated automatically."}
-                  </div>
-                </div>
-
-                <Toggle label="In stock" checked={draft.inStock} onChange={(value) => setDraft({ ...draft, inStock: value })} />
-                <Toggle label="Featured" checked={draft.featured} onChange={(value) => setDraft({ ...draft, featured: value })} />
-                {error ? <p className="md:col-span-2 rounded-xl border border-red-400/20 bg-red-500/10 p-3 text-sm font-bold text-red-200">{error}</p> : null}
-                <Button className="md:col-span-2" onClick={save} disabled={isPending || isTranslating}>{isPending ? "Saving..." : "Save product"}</Button>
-              </div>
-            </div>
-          ) : null}
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
