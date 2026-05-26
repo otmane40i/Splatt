@@ -33,6 +33,10 @@ export async function POST(request: Request) {
     const details = parsed.error.issues.map((issue) => `${issue.path.join(".") || "product"} ${issue.message}`).join(", ");
     return NextResponse.json({ error: "Invalid product", details }, { status: 400 });
   }
+  const existing = (await getProducts()).find((product) => product.slug === parsed.data.slug);
+  if (existing) {
+    return NextResponse.json({ error: "Product slug already exists", details: "Use a different slug, or edit the existing product instead." }, { status: 409 });
+  }
   const productData = productWithDefaults(parsed.data);
   const firestoreProduct = await saveFirestoreProduct({ id: parsed.data.slug, ...productData });
   if (firestoreProduct) return NextResponse.json(firestoreProduct, { status: 201 });
@@ -48,6 +52,10 @@ export async function PUT(request: Request) {
   if (!parsed.success) {
     const details = parsed.error.issues.map((issue) => `${issue.path.join(".") || "product"} ${issue.message}`).join(", ");
     return NextResponse.json({ error: "Invalid product", details }, { status: 400 });
+  }
+  const duplicate = (await getProducts()).find((product) => product.slug === parsed.data.slug && product.id !== body.id);
+  if (duplicate) {
+    return NextResponse.json({ error: "Product slug already exists", details: "Use a different slug for this product." }, { status: 409 });
   }
   const productData = productWithDefaults(parsed.data);
   const firestoreProduct = await saveFirestoreProduct({ id: body.id, ...productData });

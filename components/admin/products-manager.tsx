@@ -13,7 +13,8 @@ import type { StoreProduct } from "@/lib/catalog";
 
 type ProductDraft = Omit<StoreProduct, "id" | "createdAt" | "updatedAt"> & { id?: string };
 
-const blankProduct: ProductDraft = {
+function createBlankProduct(): ProductDraft {
+  return {
   slug: "",
   nameEN: "",
   nameFR: "",
@@ -29,6 +30,7 @@ const blankProduct: ProductDraft = {
   inStock: true,
   featured: false
 };
+}
 
 export function ProductsManager({ products }: { products: StoreProduct[] }) {
   const [draft, setDraft] = useState<ProductDraft | null>(null);
@@ -110,7 +112,7 @@ export function ProductsManager({ products }: { products: StoreProduct[] }) {
     <div>
       <div className="flex items-center justify-between gap-4">
         <h1 className="font-space text-4xl font-black">Products</h1>
-        <Button onClick={() => { setError(""); setDraft(blankProduct); }}><Plus className="h-4 w-4" />Add</Button>
+        <Button onClick={() => { setError(""); setDraft(createBlankProduct()); }}><Plus className="h-4 w-4" />Add</Button>
       </div>
       {draft ? (
         <section className="glass mt-6 p-5">
