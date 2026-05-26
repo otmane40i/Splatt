@@ -20,6 +20,20 @@ export type StoreOrder = {
   product?: StoreProduct | null;
 };
 
+export type ProductionItem = {
+  id: string;
+  name: string;
+  type: "filament" | "printer" | "box" | "paint" | "tool" | "charge" | "other";
+  status: "available" | "low" | "active" | "maintenance" | "ordered" | "paused";
+  quantity: number;
+  unit: string;
+  unitCost: number;
+  monthlyCost: number;
+  notes: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
 function asDate(value: unknown) {
   if (value instanceof Timestamp) return value.toDate();
   if (value instanceof Date) return value;
@@ -65,6 +79,22 @@ function orderFromDoc(id: string, data: FirebaseFirestore.DocumentData): StoreOr
     notes: typeof data.notes === "string" ? data.notes : null,
     createdAt: asDate(data.createdAt),
     product: null
+  };
+}
+
+function productionItemFromDoc(id: string, data: FirebaseFirestore.DocumentData): ProductionItem {
+  return {
+    id,
+    name: String(data.name ?? ""),
+    type: String(data.type ?? "other") as ProductionItem["type"],
+    status: String(data.status ?? "available") as ProductionItem["status"],
+    quantity: Number(data.quantity ?? 0),
+    unit: String(data.unit ?? "unit"),
+    unitCost: Number(data.unitCost ?? 0),
+    monthlyCost: Number(data.monthlyCost ?? 0),
+    notes: typeof data.notes === "string" ? data.notes : null,
+    createdAt: asDate(data.createdAt),
+    updatedAt: asDate(data.updatedAt)
   };
 }
 
@@ -145,4 +175,64 @@ export async function updateFirestoreOrderStatus(id: string, status: OrderStatus
   await ref.update({ status });
   const saved = await ref.get();
   return orderFromDoc(saved.id, saved.data() ?? {});
+}
+
+export async function updateFirestoreOrder(data: Omit<StoreOrder, "createdAt" | "product" | "productId" | "productPrice"> & { id: string }) {
+  const db = getFirebaseDb();
+  if (!db) return null;
+
+  const ref = db.collection("orders").doc(data.id);
+  await ref.update({
+    customerName: data.customerName,
+    customerPhone: data.customerPhone,
+    customerCity: data.customerCity,
+    customerAddress: data.customerAddress,
+    productName: data.productName,
+    quantity: data.quantity,
+    totalPrice: data.totalPrice,
+    status: data.status,
+    notes: data.notes ?? null
+  });
+  const saved = await ref.get();
+  return orderFromDoc(saved.id, saved.data() ?? {});
+}
+
+export async function deleteFirestoreOrder(id: string) {
+  const db = getFirebaseDb();
+  if (!db) return false;
+  await db.collection("orders").doc(id).delete();
+  return true;
+}
+
+export async function getFirestoreProductionItems() {
+  const db = getFirebaseDb();
+  if (!db) return null;
+  const snapshot = await db.collection("productionItems").orderBy("createdAt", "desc").get();
+  return snapshot.docs.map((doc) => productionItemFromDoc(doc.id, doc.data()));
+}
+
+export async function saveFirestoreProductionItem(item: Omit<ProductionItem, "createdAt" | "updatedAt">) {
+  const db = getFirebaseDb();
+  if (!db) return null;
+  const id = item.id || undefined;
+  const ref = id ? db.collection("productionItems").doc(id) : db.collection("productionItems").doc();
+  const existing = await ref.get();
+  await ref.set(
+    {
+      ...item,
+      id: ref.id,
+      createdAt: existing.exists ? existing.data()?.createdAt ?? FieldValue.serverTimestamp() : FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp()
+    },
+    { merge: true }
+  );
+  const saved = await ref.get();
+  return productionItemFromDoc(saved.id, saved.data() ?? {});
+}
+
+export async function deleteFirestoreProductionItem(id: string) {
+  const db = getFirebaseDb();
+  if (!db) return false;
+  await db.collection("productionItems").doc(id).delete();
+  return true;
 }

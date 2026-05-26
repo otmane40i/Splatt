@@ -2,9 +2,9 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { prisma } from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
-import { orderSchema, statusSchema } from "@/lib/validation";
+import { adminOrderUpdateSchema, orderSchema, statusSchema } from "@/lib/validation";
 import { sampleProducts, type StoreProduct } from "@/lib/catalog";
-import { createFirestoreOrder, getFirestoreOrders, updateFirestoreOrderStatus } from "@/lib/firestore-store";
+import { createFirestoreOrder, deleteFirestoreOrder, getFirestoreOrders, updateFirestoreOrder, updateFirestoreOrderStatus } from "@/lib/firestore-store";
 
 function whatsappUrl(message: string) {
   const number = process.env.WHATSAPP_NUMBER ?? "212600000000";
@@ -74,10 +74,41 @@ export async function PUT(request: Request) {
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const body = (await request.json()) as { id?: string; status?: string };
   if (!body.id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
+  const fullUpdate = adminOrderUpdateSchema.safeParse(body);
+  if (fullUpdate.success) {
+    const updateData = { ...fullUpdate.data, notes: fullUpdate.data.notes ?? null };
+    const firestoreOrder = await updateFirestoreOrder(updateData);
+    if (firestoreOrder) return NextResponse.json(firestoreOrder);
+    const order = await prisma.order.update({
+      where: { id: updateData.id },
+      data: {
+        customerName: updateData.customerName,
+        customerPhone: updateData.customerPhone,
+        customerCity: updateData.customerCity,
+        customerAddress: updateData.customerAddress,
+        productName: updateData.productName,
+        quantity: updateData.quantity,
+        totalPrice: updateData.totalPrice,
+        status: updateData.status,
+        notes: updateData.notes
+      }
+    });
+    return NextResponse.json(order);
+  }
   const parsed = statusSchema.safeParse({ status: body.status });
   if (!parsed.success) return NextResponse.json({ error: "Invalid status" }, { status: 400 });
   const firestoreOrder = await updateFirestoreOrderStatus(body.id, parsed.data.status);
   if (firestoreOrder) return NextResponse.json(firestoreOrder);
   const order = await prisma.order.update({ where: { id: body.id }, data: { status: parsed.data.status } });
   return NextResponse.json(order);
+}
+
+export async function DELETE(request: Request) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { id } = (await request.json()) as { id?: string };
+  if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
+  if (await deleteFirestoreOrder(id)) return NextResponse.json({ ok: true });
+  await prisma.order.delete({ where: { id } });
+  return NextResponse.json({ ok: true });
 }

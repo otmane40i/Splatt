@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 export default async function AdminOrdersPage({
   searchParams
 }: {
-  searchParams: { status?: OrderStatus };
+  searchParams: { status?: OrderStatus; month?: string };
 }) {
   const orders: StoreOrder[] = await getFirestoreOrders(searchParams.status).then(async (firestoreOrders) => {
     if (firestoreOrders) return firestoreOrders;
@@ -26,5 +26,13 @@ export default async function AdminOrdersPage({
     console.error("Admin orders DB unavailable:", error);
     return [];
   });
-  return <OrdersManager orders={orders} activeStatus={searchParams.status} />;
+  const activeMonth = searchParams.month;
+  const filteredOrders = activeMonth
+    ? orders.filter((order) => {
+      const date = new Date(order.createdAt);
+      return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}` === activeMonth;
+    })
+    : orders;
+
+  return <OrdersManager orders={filteredOrders} allOrders={orders} activeStatus={searchParams.status} activeMonth={activeMonth} />;
 }
