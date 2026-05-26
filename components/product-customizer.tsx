@@ -203,7 +203,7 @@ export function ProductCustomizer({ product }: { product: StoreProduct }) {
   const viewerRef = useRef<ViewerState | null>(null);
   const [selectedColors, setSelectedColors] = useState<string[]>([]);
   const [loadError, setLoadError] = useState("");
-  const [viewMode, setViewMode] = useState<ProductViewMode>(product.model3d ? "model" : "image");
+  const [viewMode, setViewMode] = useState<ProductViewMode>("image");
   const { locale } = useLanguage();
   const name = locale === "fr" ? product.nameFR : product.nameEN;
   const description = locale === "fr" ? product.descFR : product.descEN;
