@@ -103,13 +103,35 @@ export default async function HomePage() {
           </div>
         </div>
       </section>
-      <section className="container-page py-20">
-        <Reveal className="max-w-3xl">
-          <p className="text-sm font-black uppercase text-splatt-teal">About SPLATT.</p>
-          <h2 className="font-space text-4xl font-black">A Moroccan DIY brand for people who want the art to feel personal.</h2>
-          <p className="mt-5 text-white/62">We make blank figurine kits that let anyone create a collectible object without needing a studio, a canvas, or permission.</p>
-          <Button asChild className="mt-7"><Link href="/about">Read more</Link></Button>
-        </Reveal>
+      <section className="relative min-h-[600px] overflow-hidden border-y border-white/10 bg-black py-16 sm:py-20">
+        <div className="pointer-events-none absolute -left-8 top-8 font-space text-[18vw] font-black leading-none text-white/[0.035]">
+          SPLATT.
+        </div>
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_50%,rgba(255,46,147,0.18),transparent_34%),radial-gradient(circle_at_85%_30%,rgba(31,168,160,0.12),transparent_30%)]" />
+        <div className="container-page relative z-10 grid min-h-[600px] items-center gap-10 lg:grid-cols-[0.95fr_1.05fr]">
+          <Reveal className="max-w-3xl">
+            <p className="border-l-4 border-splatt-pink pl-4 text-sm font-black uppercase tracking-wide text-splatt-pink">
+              ABOUT SPLATT.
+            </p>
+            <h2 className="mt-5 font-space text-5xl font-black leading-tight text-white sm:text-6xl">
+              A Moroccan DIY brand for people who want the art to feel personal.
+            </h2>
+            <p className="mt-6 max-w-2xl text-lg leading-8 text-white/62">
+              We make blank figurine kits that let anyone create a collectible object without needing a studio, a canvas, or permission.
+            </p>
+            <Button asChild className="mt-8"><Link href="/about">Read more</Link></Button>
+          </Reveal>
+          <Reveal delay={0.12} className="relative h-[520px] overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] shadow-[0_0_80px_rgba(255,46,147,0.16)] lg:h-full">
+            <Image
+              src="/images/about-bear.jpg"
+              alt="Paint-pour SPLATT. bear figurine on a dark table"
+              fill
+              className="object-cover"
+              sizes="(min-width: 1024px) 48vw, 100vw"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-transparent to-transparent" />
+          </Reveal>
+        </div>
       </section>
       <footer className="border-t border-white/10 py-8">
         <div className="container-page flex flex-col justify-between gap-4 text-sm text-white/50 sm:flex-row">
