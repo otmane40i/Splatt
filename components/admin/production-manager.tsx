@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, useTransition } from "react";
-import { AlertTriangle, Box, CheckCircle2, Clock, Factory, GripVertical, PackageCheck, Pause, Play, Plus, Printer, Trash2 } from "lucide-react";
+import { AlertTriangle, Box, CheckCircle2, Clock, Factory, GripVertical, PackageCheck, Pause, Plus, Printer, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -13,11 +13,134 @@ import type { MachineStatus, PrintJobStatus, PrintQueueJob, ProductionInventoryI
 type MachineDraft = Pick<ProductionMachine, "id" | "name" | "model" | "status">;
 type JobDraft = Pick<PrintQueueJob, "id" | "productName" | "linkedOrderId" | "customer" | "filamentGrams" | "estimatedMinutes" | "status" | "assignedMachineId" | "orderRevenue">;
 type InventoryDraft = ProductionInventoryItem;
+type ProductionAction =
+  | { type: "saveMachine"; machine: Partial<ProductionMachine> }
+  | { type: "removeMachine"; id: string }
+  | { type: "saveJob"; job: Partial<PrintQueueJob> }
+  | { type: "removeJob"; id: string }
+  | { type: "reorderQueue"; ids: string[] }
+  | { type: "assignJob"; jobId: string; machineId: string | null }
+  | { type: "startPrint"; machineId: string; jobId: string }
+  | { type: "pauseMachine"; machineId: string }
+  | { type: "markDone"; machineId: string }
+  | { type: "saveInventory"; item: Partial<ProductionInventoryItem> }
+  | { type: "removeInventory"; id: string }
+  | { type: "updateUnit"; id: string; status: UnitStatus };
 
 const machineStatuses: MachineStatus[] = ["idle", "printing", "done", "paused"];
 const jobStatuses: PrintJobStatus[] = ["queued", "printing", "done"];
 const unitStatuses: UnitStatus[] = ["printed", "packaged", "delivered"];
 const inventoryCategories: ProductionInventoryItem["category"][] = ["filament", "paint", "brush", "cup", "box", "plate"];
+
+function makeId(prefix: string) {
+  return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+}
+
+function completeMachine(machine: Partial<ProductionMachine>): ProductionMachine {
+  return {
+    id: machine.id || makeId("machine"),
+    name: machine.name || "Printer",
+    model: machine.model || "",
+    status: (machine.status || "idle") as MachineStatus,
+    currentJobId: machine.currentJobId ?? null,
+    currentJobName: machine.currentJobName ?? null,
+    productName: machine.productName ?? null,
+    startedAt: machine.startedAt ? new Date(machine.startedAt) : null,
+    estimatedSeconds: Number(machine.estimatedSeconds ?? 0),
+    pausedRemainingSeconds: typeof machine.pausedRemainingSeconds === "number" ? machine.pausedRemainingSeconds : null
+  };
+}
+
+function completeJob(job: Partial<PrintQueueJob>, system: ProductionSystem): PrintQueueJob {
+  const existing = system.queue.find((item) => item.id === job.id);
+  return {
+    id: job.id || makeId("job"),
+    productName: job.productName || existing?.productName || "Splatt. figure",
+    linkedOrderId: job.linkedOrderId || existing?.linkedOrderId || "",
+    customer: job.customer || existing?.customer || "",
+    filamentGrams: Number(job.filamentGrams ?? existing?.filamentGrams ?? 80),
+    estimatedMinutes: Number(job.estimatedMinutes ?? existing?.estimatedMinutes ?? 180),
+    status: (job.status || existing?.status || "queued") as PrintJobStatus,
+    assignedMachineId: job.assignedMachineId ?? existing?.assignedMachineId ?? null,
+    completedAt: job.completedAt ? new Date(job.completedAt) : existing?.completedAt ?? null,
+    orderRevenue: Number(job.orderRevenue ?? existing?.orderRevenue ?? 0)
+  };
+}
+
+function completeInventory(item: Partial<ProductionInventoryItem>): ProductionInventoryItem {
+  return {
+    id: item.id || makeId("stock"),
+    name: item.name || "Inventory item",
+    category: item.category || "filament",
+    stock: Number(item.stock ?? 0),
+    minThreshold: Number(item.minThreshold ?? 0),
+    unit: item.unit || "unit",
+    unitCost: Number(item.unitCost ?? 0)
+  };
+}
+
+function unitPrefix(productName: string) {
+  const clean = productName.replace(/splatt\.?/i, "").trim().split(/\s+/)[0] || "UNIT";
+  return clean.replace(/[^a-z0-9]/gi, "").slice(0, 6).toUpperCase() || "UNIT";
+}
+
+function nextUnitId(productName: string, units: ProductionSystem["units"]) {
+  const prefix = unitPrefix(productName);
+  const count = units.filter((unit) => unit.id.startsWith(`${prefix}-`)).length + 1;
+  return `${prefix}-${String(count).padStart(3, "0")}`;
+}
+
+function deductInventory(inventory: ProductionInventoryItem[], filamentGrams: number) {
+  const deductions: Record<ProductionInventoryItem["category"], number> = { filament: filamentGrams / 1000, paint: 3, brush: 1, cup: 2, box: 1, plate: 1 };
+  return inventory.map((item) => ({ ...item, stock: Math.max(0, Number((item.stock - deductions[item.category]).toFixed(3))) }));
+}
+
+function applyProductionAction(system: ProductionSystem, action: ProductionAction): ProductionSystem {
+  if (action.type === "saveMachine") {
+    const machine = completeMachine(action.machine);
+    return { ...system, machines: system.machines.some((item) => item.id === machine.id) ? system.machines.map((item) => item.id === machine.id ? { ...item, ...machine } : item) : [...system.machines, machine] };
+  }
+  if (action.type === "removeMachine") return { ...system, machines: system.machines.filter((machine) => machine.id !== action.id), queue: system.queue.map((job) => job.assignedMachineId === action.id ? { ...job, assignedMachineId: null } : job) };
+  if (action.type === "saveJob") {
+    const job = completeJob(action.job, system);
+    return { ...system, queue: system.queue.some((item) => item.id === job.id) ? system.queue.map((item) => item.id === job.id ? job : item) : [...system.queue, job] };
+  }
+  if (action.type === "removeJob") return { ...system, queue: system.queue.filter((job) => job.id !== action.id) };
+  if (action.type === "reorderQueue") {
+    const byId = new Map(system.queue.map((job) => [job.id, job]));
+    return { ...system, queue: action.ids.map((id) => byId.get(id)).filter((job): job is PrintQueueJob => Boolean(job)) };
+  }
+  if (action.type === "assignJob") return { ...system, queue: system.queue.map((job) => job.id === action.jobId ? { ...job, assignedMachineId: action.machineId } : job) };
+  if (action.type === "startPrint") {
+    const job = system.queue.find((item) => item.id === action.jobId);
+    if (!job) return system;
+    return {
+      ...system,
+      queue: system.queue.map((item) => item.id === action.jobId ? { ...item, status: "printing", assignedMachineId: action.machineId } : item),
+      machines: system.machines.map((machine) => machine.id === action.machineId ? { ...machine, status: "printing", currentJobId: job.id, currentJobName: job.id, productName: job.productName, startedAt: new Date(), estimatedSeconds: job.estimatedMinutes * 60, pausedRemainingSeconds: null } : machine)
+    };
+  }
+  if (action.type === "pauseMachine") return { ...system, machines: system.machines.map((machine) => machine.id === action.machineId ? { ...machine, status: machine.status === "paused" ? "printing" : "paused", pausedRemainingSeconds: machine.status === "paused" ? null : remainingSeconds(machine, Date.now()) } : machine) };
+  if (action.type === "markDone") {
+    const machine = system.machines.find((item) => item.id === action.machineId);
+    const job = machine?.currentJobId ? system.queue.find((item) => item.id === machine.currentJobId) : null;
+    if (!machine || !job) return system;
+    return {
+      ...system,
+      queue: system.queue.map((item) => item.id === job.id ? { ...item, status: "done", completedAt: new Date() } : item),
+      inventory: deductInventory(system.inventory, job.filamentGrams),
+      units: [...system.units, { id: nextUnitId(job.productName, system.units), productName: job.productName, orderId: job.linkedOrderId, customer: job.customer, status: "printed", createdAt: new Date() }],
+      machines: system.machines.map((item) => item.id === machine.id ? { ...item, status: "done", currentJobId: null, currentJobName: null, productName: null, startedAt: null, estimatedSeconds: 0, pausedRemainingSeconds: null } : item)
+    };
+  }
+  if (action.type === "saveInventory") {
+    const item = completeInventory(action.item);
+    return { ...system, inventory: system.inventory.some((stock) => stock.id === item.id) ? system.inventory.map((stock) => stock.id === item.id ? item : stock) : [...system.inventory, item] };
+  }
+  if (action.type === "removeInventory") return { ...system, inventory: system.inventory.filter((item) => item.id !== action.id) };
+  if (action.type === "updateUnit") return { ...system, units: system.units.map((unit) => unit.id === action.id ? { ...unit, status: action.status } : unit) };
+  return system;
+}
 
 export function ProductionManager({ initialSystem }: { initialSystem: ProductionSystem }) {
   const [system, setSystem] = useState(initialSystem);
@@ -25,6 +148,7 @@ export function ProductionManager({ initialSystem }: { initialSystem: Production
   const [jobDraft, setJobDraft] = useState<JobDraft | null>(null);
   const [inventoryDraft, setInventoryDraft] = useState<InventoryDraft | null>(null);
   const [dragId, setDragId] = useState<string | null>(null);
+  const [error, setError] = useState("");
   const [now, setNow] = useState(Date.now());
   const [isPending, startTransition] = useTransition();
 
@@ -53,14 +177,22 @@ export function ProductionManager({ initialSystem }: { initialSystem: Production
     };
   }, [system]);
 
-  function mutate(action: object) {
+  function mutate(action: ProductionAction) {
+    const previous = system;
+    setError("");
+    setSystem((current) => applyProductionAction(current, action));
     startTransition(async () => {
       const response = await fetch("/api/production", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(action)
       });
-      if (!response.ok) return;
+      if (!response.ok) {
+        const data = (await response.json().catch(() => null)) as { error?: string } | null;
+        setSystem(previous);
+        setError(data?.error ?? "Production update failed. Try again.");
+        return;
+      }
       const updated = (await response.json()) as ProductionSystem;
       setSystem(updated);
     });
@@ -74,17 +206,16 @@ export function ProductionManager({ initialSystem }: { initialSystem: Production
     const next = current.filter((job) => job.id !== dragId);
     const targetIndex = next.findIndex((job) => job.id === targetId);
     next.splice(targetIndex, 0, dragged);
-    setSystem({ ...system, queue: next });
     mutate({ type: "reorderQueue", ids: next.map((job) => job.id) });
   }
 
   return (
-    <div className="space-y-8">
-      <header className="flex flex-col justify-between gap-4 lg:flex-row lg:items-end">
+    <div className="space-y-5">
+      <header className="flex flex-col justify-between gap-3 lg:flex-row lg:items-end">
         <div>
-          <p className="text-sm font-black uppercase text-splatt-pink">Production OS</p>
-          <h1 className="font-space text-4xl font-black sm:text-5xl">Manage every unit from print to box.</h1>
-          <p className="mt-2 max-w-2xl text-white/55">Machines, print queue, inventory, assigned orders, and production money in one place.</p>
+          <p className="text-xs font-black uppercase text-splatt-pink">Production OS</p>
+          <h1 className="font-space text-3xl font-black sm:text-4xl">Manage every unit from print to box.</h1>
+          <p className="mt-1 max-w-2xl text-sm text-white/55">Machines, queue, stock, assigned orders, and production money in one place.</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button onClick={() => setMachineDraft({ id: "", name: "", model: "", status: "idle" })}><Plus className="h-4 w-4" /> Machine</Button>
@@ -92,8 +223,9 @@ export function ProductionManager({ initialSystem }: { initialSystem: Production
           <Button variant="outline" onClick={() => setInventoryDraft({ id: "", name: "", category: "filament", stock: 0, minThreshold: 0, unit: "unit", unitCost: 0 })}><Plus className="h-4 w-4" /> Inventory</Button>
         </div>
       </header>
+      {error ? <div className="rounded-xl border border-red-400/20 bg-red-500/10 p-3 text-sm font-bold text-red-200">{error}</div> : null}
 
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+      <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
         <Stat label="Today printed" value={String(stats.dailyUnits)} />
         <Stat label="7-day printed" value={String(stats.weeklyUnits)} />
         <Stat label="Filament used" value={`${stats.filament}g`} />
@@ -103,7 +235,7 @@ export function ProductionManager({ initialSystem }: { initialSystem: Production
 
       <section>
         <SectionTitle icon={Printer} title="Machines Panel" action={<Button size="sm" onClick={() => setMachineDraft({ id: "", name: "", model: "", status: "idle" })}><Plus className="h-4 w-4" /> Add machine</Button>} />
-        <div className="mt-4 grid gap-4 xl:grid-cols-3">
+        <div className="mt-3 grid gap-3 xl:grid-cols-3">
           {system.machines.map((machine) => (
             <MachineCard key={machine.id} machine={machine} queue={system.queue} now={now} isPending={isPending} onEdit={() => setMachineDraft(machine)} onStart={(jobId) => mutate({ type: "startPrint", machineId: machine.id, jobId })} onPause={() => mutate({ type: "pauseMachine", machineId: machine.id })} onDone={() => mutate({ type: "markDone", machineId: machine.id })} onRemove={() => mutate({ type: "removeMachine", id: machine.id })} />
           ))}
@@ -112,32 +244,32 @@ export function ProductionManager({ initialSystem }: { initialSystem: Production
 
       <section>
         <SectionTitle icon={GripVertical} title="Print Queue" action={<Button size="sm" onClick={() => setJobDraft({ id: "", productName: "", linkedOrderId: "", customer: "", filamentGrams: 80, estimatedMinutes: 180, status: "queued", assignedMachineId: null, orderRevenue: 0 })}><Plus className="h-4 w-4" /> Add job</Button>} />
-        <div className="glass mt-4 overflow-x-auto">
+        <div className="glass mt-3 overflow-x-auto">
           <table className="w-full min-w-[1180px] text-left text-sm">
             <thead className="border-b border-white/10 text-white/50">
               <tr>
-                <th className="p-4">Move</th>
-                <th className="p-4">Job ID</th>
-                <th className="p-4">Product</th>
-                <th className="p-4">Order</th>
-                <th className="p-4">Filament</th>
-                <th className="p-4">Time</th>
-                <th className="p-4">Status</th>
-                <th className="p-4">Assigned machine</th>
-                <th className="p-4 text-right">Actions</th>
+                <th className="p-3">Move</th>
+                <th className="p-3">Job ID</th>
+                <th className="p-3">Product</th>
+                <th className="p-3">Order</th>
+                <th className="p-3">Filament</th>
+                <th className="p-3">Time</th>
+                <th className="p-3">Status</th>
+                <th className="p-3">Machine</th>
+                <th className="p-3 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/10">
               {system.queue.map((job) => (
                 <tr key={job.id} draggable onDragStart={() => setDragId(job.id)} onDragOver={(event) => event.preventDefault()} onDrop={() => reorderQueue(job.id)} className="transition hover:bg-white/[0.03]">
-                  <td className="p-4 text-white/35"><GripVertical className="h-4 w-4" /></td>
-                  <td className="p-4 font-mono text-xs">{job.id}</td>
-                  <td className="p-4 font-bold">{job.productName}<p className="text-white/40">{job.customer}</p></td>
-                  <td className="p-4">{job.linkedOrderId || "No order"}</td>
-                  <td className="p-4">{job.filamentGrams}g</td>
-                  <td className="p-4">{job.estimatedMinutes} min</td>
-                  <td className="p-4"><StatusBadge status={job.status} /></td>
-                  <td className="p-4">
+                  <td className="p-3 text-white/35"><GripVertical className="h-4 w-4" /></td>
+                  <td className="p-3 font-mono text-xs">{job.id}</td>
+                  <td className="p-3 font-bold">{job.productName}<p className="text-white/40">{job.customer}</p></td>
+                  <td className="p-3">{job.linkedOrderId || "No order"}</td>
+                  <td className="p-3">{job.filamentGrams}g</td>
+                  <td className="p-3">{job.estimatedMinutes} min</td>
+                  <td className="p-3"><StatusBadge status={job.status} /></td>
+                  <td className="p-3">
                     <Select value={job.assignedMachineId ?? "none"} onValueChange={(value) => mutate({ type: "assignJob", jobId: job.id, machineId: value === "none" ? null : value })}>
                       <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
                       <SelectContent>
@@ -146,7 +278,7 @@ export function ProductionManager({ initialSystem }: { initialSystem: Production
                       </SelectContent>
                     </Select>
                   </td>
-                  <td className="p-4">
+                  <td className="p-3">
                     <div className="flex justify-end gap-2">
                       <Button size="sm" variant="outline" onClick={() => setJobDraft(job)}>Edit</Button>
                       <Button size="icon" variant="destructive" onClick={() => mutate({ type: "removeJob", id: job.id })}><Trash2 className="h-4 w-4" /></Button>
@@ -159,29 +291,29 @@ export function ProductionManager({ initialSystem }: { initialSystem: Production
         </div>
       </section>
 
-      <section className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
+      <section className="grid gap-4 xl:grid-cols-[0.9fr_1.1fr]">
         <div>
           <SectionTitle icon={Box} title="Inventory Tracker" action={<Button size="sm" onClick={() => setInventoryDraft({ id: "", name: "", category: "filament", stock: 0, minThreshold: 0, unit: "unit", unitCost: 0 })}><Plus className="h-4 w-4" /> Add stock</Button>} />
-          <div className="mt-4 grid gap-3">
+          <div className="mt-3 grid gap-2">
             {system.inventory.map((item) => <InventoryRow key={item.id} item={item} onEdit={() => setInventoryDraft(item)} onRemove={() => mutate({ type: "removeInventory", id: item.id })} />)}
           </div>
         </div>
 
         <div>
           <SectionTitle icon={PackageCheck} title="Order-to-Unit Assignment" />
-          <div className="glass mt-4 overflow-x-auto">
+          <div className="glass mt-3 overflow-x-auto">
             <table className="w-full min-w-[760px] text-left text-sm">
               <thead className="border-b border-white/10 text-white/50">
-                <tr><th className="p-4">Unit ID</th><th className="p-4">Product</th><th className="p-4">Order ID</th><th className="p-4">Customer</th><th className="p-4">Status</th></tr>
+                <tr><th className="p-3">Unit ID</th><th className="p-3">Product</th><th className="p-3">Order ID</th><th className="p-3">Customer</th><th className="p-3">Status</th></tr>
               </thead>
               <tbody className="divide-y divide-white/10">
                 {system.units.map((unit) => (
                   <tr key={unit.id}>
-                    <td className="p-4 font-black">{unit.id}</td>
-                    <td className="p-4">{unit.productName}</td>
-                    <td className="p-4">{unit.orderId || "Stock"}</td>
-                    <td className="p-4">{unit.customer || "No customer"}</td>
-                    <td className="p-4">
+                    <td className="p-3 font-black">{unit.id}</td>
+                    <td className="p-3">{unit.productName}</td>
+                    <td className="p-3">{unit.orderId || "Stock"}</td>
+                    <td className="p-3">{unit.customer || "No customer"}</td>
+                    <td className="p-3">
                       <Select value={unit.status} onValueChange={(status: UnitStatus) => mutate({ type: "updateUnit", id: unit.id, status })}>
                         <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
                         <SelectContent>{unitStatuses.map((status) => <SelectItem key={status} value={status}>{status}</SelectItem>)}</SelectContent>
@@ -208,22 +340,22 @@ function MachineCard({ machine, queue, now, isPending, onEdit, onStart, onPause,
   const remaining = remainingSeconds(machine, now);
   const progress = machine.estimatedSeconds > 0 ? Math.min(100, Math.round(((machine.estimatedSeconds - remaining) / machine.estimatedSeconds) * 100)) : 0;
   return (
-    <div className="glass p-5">
+    <div className="glass p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="font-space text-2xl font-black">{machine.name}</p>
+          <p className="font-space text-xl font-black">{machine.name}</p>
           <p className="text-sm text-white/45">{machine.model || "No model set"}</p>
         </div>
         <StatusBadge status={machine.status} />
       </div>
-      <div className="mt-5 rounded-2xl border border-white/10 bg-black/30 p-4">
+      <div className="mt-3 rounded-xl border border-white/10 bg-black/30 p-3">
         <p className="text-xs font-black uppercase text-white/40">Current print</p>
-        <p className="mt-2 font-bold">{machine.productName || "No active job"}</p>
+        <p className="mt-1 font-bold">{machine.productName || "No active job"}</p>
         <p className="mt-1 text-sm text-white/50">{machine.currentJobName || "Waiting for queue"}</p>
-        <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/10"><div className="h-full bg-splatt-pink" style={{ width: `${progress}%` }} /></div>
+        <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/10"><div className="h-full bg-splatt-pink" style={{ width: `${progress}%` }} /></div>
         <p className="mt-2 flex items-center gap-2 text-sm text-white/60"><Clock className="h-4 w-4" /> {formatDuration(remaining)} remaining</p>
       </div>
-      <div className="mt-4 grid gap-2">
+      <div className="mt-3 grid gap-2">
         <Select onValueChange={onStart} disabled={isPending || availableJobs.length === 0}>
           <SelectTrigger><SelectValue placeholder="Start print job" /></SelectTrigger>
           <SelectContent>{availableJobs.map((job) => <SelectItem key={job.id} value={job.id}>{job.productName} · {job.estimatedMinutes} min</SelectItem>)}</SelectContent>
@@ -233,7 +365,7 @@ function MachineCard({ machine, queue, now, isPending, onEdit, onStart, onPause,
           <Button variant="outline" onClick={onDone} disabled={!machine.currentJobId}><CheckCircle2 className="h-4 w-4" /> Done</Button>
           <Button variant="outline" onClick={onEdit}>Edit</Button>
         </div>
-        <Button variant="destructive" onClick={onRemove}><Trash2 className="h-4 w-4" /> Remove</Button>
+        <Button size="sm" variant="destructive" onClick={onRemove}><Trash2 className="h-4 w-4" /> Remove</Button>
       </div>
     </div>
   );
@@ -242,14 +374,14 @@ function MachineCard({ machine, queue, now, isPending, onEdit, onStart, onPause,
 function InventoryRow({ item, onEdit, onRemove }: { item: ProductionInventoryItem; onEdit: () => void; onRemove: () => void }) {
   const low = item.stock <= item.minThreshold;
   return (
-    <div className="glass flex items-center justify-between gap-4 p-4">
+    <div className="glass flex items-center justify-between gap-3 p-3">
       <div>
         <p className="font-bold">{item.name}</p>
         <p className="text-sm text-white/45 capitalize">{item.category} · min {item.minThreshold} {item.unit} · {formatMad(item.unitCost)} / {item.unit}</p>
       </div>
       <div className="flex items-center gap-3">
         {low ? <span className="flex items-center gap-1 rounded-full bg-splatt-orange/15 px-3 py-1 text-xs font-black text-splatt-orange"><AlertTriangle className="h-3 w-3" /> LOW</span> : null}
-        <span className="font-space text-xl font-black">{item.stock} {item.unit}</span>
+        <span className="font-space text-lg font-black">{item.stock} {item.unit}</span>
         <Button size="sm" variant="outline" onClick={onEdit}>Edit</Button>
         <Button size="icon" variant="destructive" onClick={onRemove}><Trash2 className="h-4 w-4" /></Button>
       </div>
@@ -331,11 +463,11 @@ function formatDuration(seconds: number) {
 }
 
 function Stat({ label, value }: { label: string; value: string }) {
-  return <div className="glass p-5"><p className="text-sm text-white/50">{label}</p><p className="mt-2 font-space text-2xl font-black">{value}</p></div>;
+  return <div className="glass p-4"><p className="text-xs font-bold uppercase text-white/45">{label}</p><p className="mt-1 font-space text-xl font-black">{value}</p></div>;
 }
 
 function SectionTitle({ icon: Icon, title, action }: { icon: typeof Factory; title: string; action?: React.ReactNode }) {
-  return <div className="flex items-center justify-between gap-4"><h2 className="flex items-center gap-3 font-space text-2xl font-black"><Icon className="h-6 w-6 text-splatt-pink" />{title}</h2>{action}</div>;
+  return <div className="flex items-center justify-between gap-3"><h2 className="flex items-center gap-2 font-space text-xl font-black"><Icon className="h-5 w-5 text-splatt-pink" />{title}</h2>{action}</div>;
 }
 
 function StatusBadge({ status }: { status: string }) {
