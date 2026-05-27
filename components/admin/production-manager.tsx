@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, useTransition } from "react";
+import { motion } from "framer-motion";
 import { AlertTriangle, Box, CheckCircle2, Clock, Factory, GripVertical, PackageCheck, Pause, Plus, Printer, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -210,8 +211,12 @@ export function ProductionManager({ initialSystem }: { initialSystem: Production
   }
 
   return (
-    <div className="space-y-5">
-      <header className="flex flex-col justify-between gap-3 lg:flex-row lg:items-end">
+    <div className="relative space-y-5">
+      <div className="pointer-events-none absolute -right-20 top-10 h-72 w-72 rounded-full bg-splatt-pink/10 blur-3xl" />
+      <div className="pointer-events-none absolute left-1/3 top-80 h-64 w-64 rounded-full bg-splatt-teal/10 blur-3xl" />
+      <header className="glass relative overflow-hidden p-5">
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-splatt-pink via-splatt-teal to-splatt-orange" />
+        <div className="flex flex-col justify-between gap-3 lg:flex-row lg:items-end">
         <div>
           <p className="text-xs font-black uppercase text-splatt-pink">Production OS</p>
           <h1 className="font-space text-3xl font-black sm:text-4xl">Manage every unit from print to box.</h1>
@@ -221,6 +226,7 @@ export function ProductionManager({ initialSystem }: { initialSystem: Production
           <Button onClick={() => setMachineDraft({ id: "", name: "", model: "", status: "idle" })}><Plus className="h-4 w-4" /> Machine</Button>
           <Button variant="outline" onClick={() => setJobDraft({ id: "", productName: "", linkedOrderId: "", customer: "", filamentGrams: 80, estimatedMinutes: 180, status: "queued", assignedMachineId: null, orderRevenue: 0 })}><Plus className="h-4 w-4" /> Print job</Button>
           <Button variant="outline" onClick={() => setInventoryDraft({ id: "", name: "", category: "filament", stock: 0, minThreshold: 0, unit: "unit", unitCost: 0 })}><Plus className="h-4 w-4" /> Inventory</Button>
+        </div>
         </div>
       </header>
       {error ? <div className="rounded-xl border border-red-400/20 bg-red-500/10 p-3 text-sm font-bold text-red-200">{error}</div> : null}
@@ -235,11 +241,11 @@ export function ProductionManager({ initialSystem }: { initialSystem: Production
 
       <section>
         <SectionTitle icon={Printer} title="Machines Panel" action={<Button size="sm" onClick={() => setMachineDraft({ id: "", name: "", model: "", status: "idle" })}><Plus className="h-4 w-4" /> Add machine</Button>} />
-        <div className="mt-3 grid gap-3 xl:grid-cols-3">
+        <motion.div layout className="mt-3 grid gap-3 xl:grid-cols-3">
           {system.machines.map((machine) => (
             <MachineCard key={machine.id} machine={machine} queue={system.queue} now={now} isPending={isPending} onEdit={() => setMachineDraft(machine)} onStart={(jobId) => mutate({ type: "startPrint", machineId: machine.id, jobId })} onPause={() => mutate({ type: "pauseMachine", machineId: machine.id })} onDone={() => mutate({ type: "markDone", machineId: machine.id })} onRemove={() => mutate({ type: "removeMachine", id: machine.id })} />
           ))}
-        </div>
+        </motion.div>
       </section>
 
       <section>
@@ -261,7 +267,7 @@ export function ProductionManager({ initialSystem }: { initialSystem: Production
             </thead>
             <tbody className="divide-y divide-white/10">
               {system.queue.map((job) => (
-                <tr key={job.id} draggable onDragStart={() => setDragId(job.id)} onDragOver={(event) => event.preventDefault()} onDrop={() => reorderQueue(job.id)} className="transition hover:bg-white/[0.03]">
+                <tr key={job.id} draggable onDragStart={() => setDragId(job.id)} onDragOver={(event) => event.preventDefault()} onDrop={() => reorderQueue(job.id)} className="transition hover:bg-white/[0.06]">
                   <td className="p-3 text-white/35"><GripVertical className="h-4 w-4" /></td>
                   <td className="p-3 font-mono text-xs">{job.id}</td>
                   <td className="p-3 font-bold">{job.productName}<p className="text-white/40">{job.customer}</p></td>
@@ -340,7 +346,8 @@ function MachineCard({ machine, queue, now, isPending, onEdit, onStart, onPause,
   const remaining = remainingSeconds(machine, now);
   const progress = machine.estimatedSeconds > 0 ? Math.min(100, Math.round(((machine.estimatedSeconds - remaining) / machine.estimatedSeconds) * 100)) : 0;
   return (
-    <div className="glass p-4">
+    <motion.div layout whileHover={{ y: -2, scale: 1.01 }} className={`glass relative overflow-hidden p-4 ${machine.status === "printing" ? "shadow-[0_0_40px_rgba(31,168,160,0.16)]" : ""}`}>
+      <div className={`absolute inset-x-0 top-0 h-1 ${machine.status === "printing" ? "bg-splatt-teal" : machine.status === "paused" ? "bg-splatt-orange" : machine.status === "done" ? "bg-splatt-pink" : "bg-white/10"}`} />
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="font-space text-xl font-black">{machine.name}</p>
@@ -352,7 +359,9 @@ function MachineCard({ machine, queue, now, isPending, onEdit, onStart, onPause,
         <p className="text-xs font-black uppercase text-white/40">Current print</p>
         <p className="mt-1 font-bold">{machine.productName || "No active job"}</p>
         <p className="mt-1 text-sm text-white/50">{machine.currentJobName || "Waiting for queue"}</p>
-        <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/10"><div className="h-full bg-splatt-pink" style={{ width: `${progress}%` }} /></div>
+        <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/10">
+          <motion.div className="h-full bg-gradient-to-r from-splatt-pink via-splatt-teal to-splatt-orange" animate={{ width: `${progress}%` }} transition={{ duration: 0.35 }} />
+        </div>
         <p className="mt-2 flex items-center gap-2 text-sm text-white/60"><Clock className="h-4 w-4" /> {formatDuration(remaining)} remaining</p>
       </div>
       <div className="mt-3 grid gap-2">
@@ -367,14 +376,14 @@ function MachineCard({ machine, queue, now, isPending, onEdit, onStart, onPause,
         </div>
         <Button size="sm" variant="destructive" onClick={onRemove}><Trash2 className="h-4 w-4" /> Remove</Button>
       </div>
-    </div>
+    </motion.div>
   );
 }
 
 function InventoryRow({ item, onEdit, onRemove }: { item: ProductionInventoryItem; onEdit: () => void; onRemove: () => void }) {
   const low = item.stock <= item.minThreshold;
   return (
-    <div className="glass flex items-center justify-between gap-3 p-3">
+    <motion.div layout whileHover={{ x: 2 }} className={`glass flex items-center justify-between gap-3 p-3 ${low ? "border-splatt-orange/40 bg-splatt-orange/[0.04]" : ""}`}>
       <div>
         <p className="font-bold">{item.name}</p>
         <p className="text-sm text-white/45 capitalize">{item.category} · min {item.minThreshold} {item.unit} · {formatMad(item.unitCost)} / {item.unit}</p>
@@ -385,7 +394,7 @@ function InventoryRow({ item, onEdit, onRemove }: { item: ProductionInventoryIte
         <Button size="sm" variant="outline" onClick={onEdit}>Edit</Button>
         <Button size="icon" variant="destructive" onClick={onRemove}><Trash2 className="h-4 w-4" /></Button>
       </div>
-    </div>
+    </motion.div>
   );
 }
 
@@ -463,7 +472,13 @@ function formatDuration(seconds: number) {
 }
 
 function Stat({ label, value }: { label: string; value: string }) {
-  return <div className="glass p-4"><p className="text-xs font-bold uppercase text-white/45">{label}</p><p className="mt-1 font-space text-xl font-black">{value}</p></div>;
+  return (
+    <motion.div whileHover={{ y: -2 }} className="glass relative overflow-hidden p-4">
+      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-splatt-pink to-transparent" />
+      <p className="text-xs font-bold uppercase text-white/45">{label}</p>
+      <p className="mt-1 font-space text-xl font-black text-white">{value}</p>
+    </motion.div>
+  );
 }
 
 function SectionTitle({ icon: Icon, title, action }: { icon: typeof Factory; title: string; action?: React.ReactNode }) {
@@ -472,7 +487,7 @@ function SectionTitle({ icon: Icon, title, action }: { icon: typeof Factory; tit
 
 function StatusBadge({ status }: { status: string }) {
   const tone = status === "printing" ? "text-splatt-teal bg-splatt-teal/15" : status === "done" ? "text-splatt-pink bg-splatt-pink/15" : status === "paused" ? "text-splatt-orange bg-splatt-orange/15" : "text-white/65 bg-white/10";
-  return <span className={`rounded-full px-3 py-1 text-xs font-black uppercase ${tone}`}>{status}</span>;
+  return <span className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-black uppercase ${tone}`}><span className="h-1.5 w-1.5 rounded-full bg-current" />{status}</span>;
 }
 
 function SelectField({ label, value, values, onChange }: { label: string; value: string; values: string[]; onChange: (value: string) => void }) {
