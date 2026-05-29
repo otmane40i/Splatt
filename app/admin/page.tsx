@@ -15,7 +15,7 @@ export default async function AdminDashboard() {
     const totalOrders = firestoreOrders.length;
     const pending = firestoreOrders.filter((order) => order.status === "pending").length;
     const revenue = firestoreOrders
-      .filter((order) => order.status !== "cancelled")
+      .filter((order) => order.status !== "cancelled" && order.status !== "returned")
       .reduce((sum, order) => sum + order.totalPrice, 0);
     const recentOrders = firestoreOrders.slice(0, 6);
     const stats = [
@@ -34,7 +34,7 @@ export default async function AdminDashboard() {
     const [totalOrders, pending, revenueAgg, activeProducts, recentOrders] = await Promise.all([
       prisma.order.count(),
       prisma.order.count({ where: { status: "pending" } }),
-      prisma.order.aggregate({ _sum: { totalPrice: true }, where: { status: { not: "cancelled" } } }),
+      prisma.order.aggregate({ _sum: { totalPrice: true }, where: { status: { notIn: ["cancelled", "returned"] } } }),
       prisma.product.count({ where: { inStock: true } }),
       prisma.order.findMany({ take: 6, orderBy: { createdAt: "desc" } })
     ]);

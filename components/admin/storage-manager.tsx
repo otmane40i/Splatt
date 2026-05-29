@@ -1,12 +1,13 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
-import { Archive, Box, CheckCircle2, PackageCheck, RefreshCw, Save, Trash2 } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Archive, Box, CheckCircle2, PackageCheck, RefreshCw, RotateCcw, Save, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { StoreProduct } from "@/lib/catalog";
 import type { ProductionInventoryItem, ProductionSystem, ProductionUnit, StoreOrder, UnitStatus } from "@/lib/firestore-store";
+import { orderStatuses, type OrderStatus } from "@/lib/status";
 
 type StorageAction =
   | { type: "saveInventory"; item: Partial<ProductionInventoryItem> }
@@ -36,11 +37,14 @@ function boxId(order: StoreOrder) {
 
 export function StorageManager({ initialSystem, orders, products }: { initialSystem: ProductionSystem; orders: StoreOrder[]; products: StoreProduct[] }) {
   const [system, setSystem] = useState(initialSystem);
+  const [orderList, setOrderList] = useState(orders);
   const [error, setError] = useState("");
-  const [isPending, startTransition] = useTransition();
-  const ordersById = useMemo(() => new Map(orders.map((order) => [order.id, order])), [orders]);
+  const [isSaving, setIsSaving] = useState(false);
+  const ordersById = useMemo(() => new Map(orderList.map((order) => [order.id, order])), [orderList]);
   const availableUnits = system.units.filter((unit) => unit.status === "in_stock" || unit.status === "printed");
-  const openBoxes = orders.filter((order) => order.status !== "delivered" && order.status !== "cancelled");
+  const terminalOrderStatuses: OrderStatus[] = ["delivered", "returned", "cancelled"];
+  const openBoxes = orderList.filter((order) => !terminalOrderStatuses.includes(order.status));
+  const followUpOrders = orderList;
   const productStocks = products.map((product) => {
     const units = system.units.filter((unit) => unit.productSlug === product.slug || unit.productName === product.nameEN);
     return {
@@ -51,9 +55,10 @@ export function StorageManager({ initialSystem, orders, products }: { initialSys
     };
   });
 
-  function mutate(action: StorageAction) {
+  async function applyProductionAction(action: StorageAction) {
     setError("");
-    startTransition(async () => {
+    setIsSaving(true);
+    try {
       const response = await fetch("/api/production", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -62,10 +67,45 @@ export function StorageManager({ initialSystem, orders, products }: { initialSys
       if (!response.ok) {
         const data = (await response.json().catch(() => null)) as { error?: string } | null;
         setError(data?.error ?? "Storage update failed.");
-        return;
+        return null;
       }
-      setSystem((await response.json()) as ProductionSystem);
-    });
+      const nextSystem = (await response.json()) as ProductionSystem;
+      setSystem(nextSystem);
+      return nextSystem;
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  function mutate(action: StorageAction) {
+    void applyProductionAction(action);
+  }
+
+  async function updateOrderStatus(orderId: string, status: OrderStatus) {
+    setError("");
+    setIsSaving(true);
+    try {
+      const response = await fetch("/api/orders", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: orderId, status })
+      });
+      if (!response.ok) {
+        const data = (await response.json().catch(() => null)) as { error?: string } | null;
+        setError(data?.error ?? "Order status update failed.");
+        return null;
+      }
+      const updatedOrder = (await response.json()) as StoreOrder;
+      setOrderList((current) => current.map((order) => order.id === updatedOrder.id ? updatedOrder : order));
+      return updatedOrder;
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function deliverBox(order: StoreOrder, unit: ProductionUnit) {
+    const updated = await applyProductionAction({ type: "updateUnit", id: unit.id, patch: { status: "delivered" } });
+    if (updated) await updateOrderStatus(order.id, "delivered");
   }
 
   return (
@@ -80,7 +120,7 @@ export function StorageManager({ initialSystem, orders, products }: { initialSys
       <section className="grid gap-3 md:grid-cols-4">
         <Stat label="Units available" value={String(availableUnits.length)} />
         <Stat label="Packaged" value={String(system.units.filter((unit) => unit.status === "packaged").length)} />
-        <Stat label="Delivered" value={String(system.units.filter((unit) => unit.status === "delivered").length)} />
+        <Stat label="Delivered" value={String(orderList.filter((order) => order.status === "delivered").length)} />
         <Stat label="Open boxes" value={String(openBoxes.length)} />
       </section>
 
@@ -104,9 +144,49 @@ export function StorageManager({ initialSystem, orders, products }: { initialSys
       <Card title="Packing boxes" icon={<Box className="h-5 w-5" />}>
         <div className="grid gap-3 xl:grid-cols-2">
           {openBoxes.map((order) => (
-            <PackingBox key={order.id} order={order} units={system.units} mutate={mutate} isPending={isPending} />
+            <PackingBox key={order.id} order={order} units={system.units} mutate={mutate} deliverBox={deliverBox} isPending={isSaving} />
           ))}
           {openBoxes.length === 0 ? <p className="rounded-2xl border border-white/10 bg-black/35 p-6 text-center text-white/45">No open order boxes yet.</p> : null}
+        </div>
+      </Card>
+
+      <Card title="Order follow-up" icon={<CheckCircle2 className="h-5 w-5" />}>
+        <div className="overflow-x-auto rounded-2xl border border-white/10">
+          <table className="w-full min-w-[980px] text-left text-sm">
+            <thead className="bg-white/[0.04] text-white/45">
+              <tr>
+                <th className="p-3">Box</th>
+                <th className="p-3">Order</th>
+                <th className="p-3">Customer</th>
+                <th className="p-3">Product</th>
+                <th className="p-3">Unit</th>
+                <th className="p-3">Status</th>
+                <th className="p-3">Total</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/10">
+              {followUpOrders.map((order) => {
+                const unit = system.units.find((item) => item.orderId === order.id);
+                return (
+                  <tr key={order.id}>
+                    <td className="p-3 font-mono text-xs font-black text-[#1FA8A0]">{boxId(order)}</td>
+                    <td className="p-3 text-white/60">{order.id.slice(0, 8)}</td>
+                    <td className="p-3">{order.customerName || "Customer"}</td>
+                    <td className="p-3">{order.productName}</td>
+                    <td className="p-3 font-mono text-xs text-[#FF2E93]">{unit?.id ?? "-"}</td>
+                    <td className="p-3">
+                      <Select value={order.status} onValueChange={(value) => updateOrderStatus(order.id, value as OrderStatus)}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>{orderStatuses.map((status) => <SelectItem key={status} value={status}>{status}</SelectItem>)}</SelectContent>
+                      </Select>
+                    </td>
+                    <td className="p-3 font-bold">{order.totalPrice} MAD</td>
+                  </tr>
+                );
+              })}
+              {followUpOrders.length === 0 ? <tr><td className="p-8 text-center text-white/45" colSpan={7}>Delivered, returned, and cancelled orders will live here.</td></tr> : null}
+            </tbody>
+          </table>
         </div>
       </Card>
 
@@ -126,7 +206,7 @@ export function StorageManager({ initialSystem, orders, products }: { initialSys
               </thead>
               <tbody className="divide-y divide-white/10">
                 {system.units.map((unit) => (
-                  <UnitRow key={unit.id} unit={unit} ordersById={ordersById} mutate={mutate} isPending={isPending} />
+                  <UnitRow key={unit.id} unit={unit} ordersById={ordersById} mutate={mutate} isPending={isSaving} />
                 ))}
                 {system.units.length === 0 ? <tr><td className="p-8 text-center text-white/45" colSpan={7}>No finished units yet. Mark a print job done in Production.</td></tr> : null}
               </tbody>
@@ -136,14 +216,14 @@ export function StorageManager({ initialSystem, orders, products }: { initialSys
 
       <Card title="Kit inventory" icon={<Archive className="h-5 w-5" />}>
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {system.inventory.map((item) => <InventoryRow key={item.id} item={item} mutate={mutate} isPending={isPending} />)}
+            {system.inventory.map((item) => <InventoryRow key={item.id} item={item} mutate={mutate} isPending={isSaving} />)}
           </div>
       </Card>
     </div>
   );
 }
 
-function PackingBox({ order, units, mutate, isPending }: { order: StoreOrder; units: ProductionUnit[]; mutate: (action: StorageAction) => void; isPending: boolean }) {
+function PackingBox({ order, units, mutate, deliverBox, isPending }: { order: StoreOrder; units: ProductionUnit[]; mutate: (action: StorageAction) => void; deliverBox: (order: StoreOrder, unit: ProductionUnit) => Promise<void>; isPending: boolean }) {
   const selectedUnit = units.find((unit) => unit.orderId === order.id);
   const colors = paintColors(order.notes);
   const compatibleUnits = units.filter((unit) => unit.productName === order.productName && (unit.status === "in_stock" || unit.status === "printed" || unit.orderId === order.id));
@@ -183,7 +263,12 @@ function PackingBox({ order, units, mutate, isPending }: { order: StoreOrder; un
             {compatibleUnits.map((unit) => <SelectItem key={unit.id} value={unit.id}>{unit.id} - {statusLabels[unit.status]}</SelectItem>)}
           </SelectContent>
         </Select>
-        {selectedUnit ? <Button onClick={() => mutate({ type: "updateUnit", id: selectedUnit.id, patch: { status: "delivered" } })} disabled={isPending}><CheckCircle2 className="h-4 w-4" /> Delivered</Button> : null}
+        {selectedUnit ? (
+          <div className="grid grid-cols-2 gap-2">
+            <Button onClick={() => deliverBox(order, selectedUnit)} disabled={isPending}><CheckCircle2 className="h-4 w-4" /> Delivered</Button>
+            <Button variant="outline" onClick={() => mutate({ type: "updateUnit", id: selectedUnit.id, patch: { orderId: "", customer: "", status: "in_stock" } })} disabled={isPending}><RotateCcw className="h-4 w-4" /> Unpack</Button>
+          </div>
+        ) : null}
       </div>
     </div>
   );
