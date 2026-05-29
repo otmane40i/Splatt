@@ -36,7 +36,7 @@ export type ProductionItem = {
 
 export type MachineStatus = "idle" | "printing" | "done" | "paused";
 export type PrintJobStatus = "queued" | "printing" | "done" | "cancelled";
-export type UnitStatus = "in_stock" | "printed" | "packaged" | "delivered";
+export type UnitStatus = "in_stock" | "printed" | "packaged" | "delivered" | "ruined";
 
 export type ProductionMachine = {
   id: string;
@@ -83,6 +83,7 @@ export type ProductionUnit = {
   orderId: string;
   customer: string;
   status: UnitStatus;
+  notes: string;
   createdAt: Date;
 };
 
@@ -218,6 +219,7 @@ function unitFromData(data: FirebaseFirestore.DocumentData): ProductionUnit {
     orderId: String(data.orderId ?? ""),
     customer: String(data.customer ?? ""),
     status: String(data.status ?? "printed") as UnitStatus,
+    notes: String(data.notes ?? ""),
     createdAt: asDate(data.createdAt)
   };
 }

@@ -18,7 +18,7 @@ import {
   type UnitStatus
 } from "@/lib/firestore-store";
 
-type UnitPatch = Partial<Pick<ProductionUnit, "orderId" | "customer" | "status">>;
+type UnitPatch = Partial<Pick<ProductionUnit, "orderId" | "customer" | "status" | "notes">>;
 
 type ProductionAction =
   | { type: "saveMachine"; machine: Partial<ProductionMachine> }
@@ -31,7 +31,8 @@ type ProductionAction =
   | { type: "markDone"; machineId?: string; jobId?: string }
   | { type: "saveInventory"; item: Partial<ProductionInventoryItem> }
   | { type: "restockInventory"; id: string; amount: number }
-  | { type: "updateUnit"; id: string; patch: UnitPatch };
+  | { type: "updateUnit"; id: string; patch: UnitPatch }
+  | { type: "deleteUnit"; id: string };
 
 async function requireAdmin() {
   const session = await getServerSession(authOptions);
@@ -144,6 +145,24 @@ function nextUnitId(job: PrintQueueJob, units: ProductionUnit[]) {
   return `${prefix}-${String(count).padStart(3, "0")}`;
 }
 
+function renumberUnits(units: ProductionUnit[]) {
+  const grouped = new Map<string, ProductionUnit[]>();
+  units.forEach((unit) => {
+    const key = unit.productSlug || unit.productName;
+    grouped.set(key, [...(grouped.get(key) ?? []), unit]);
+  });
+
+  const next: ProductionUnit[] = [];
+  grouped.forEach((items) => {
+    const sorted = [...items].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+    sorted.forEach((unit, index) => {
+      const prefix = unitPrefix(unit.productSlug, unit.productName);
+      next.push({ ...unit, id: `${prefix}-${String(index + 1).padStart(3, "0")}` });
+    });
+  });
+  return next.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+}
+
 async function hydrateOrders(system: ProductionSystem) {
   const orders = await getFirestoreOrders().catch(() => null);
   if (!orders) return system;
@@ -245,6 +264,7 @@ export async function PATCH(request: Request) {
           orderId: completedJob.linkedOrderId,
           customer: completedJob.customer,
           status: "in_stock",
+          notes: "",
           createdAt: new Date()
         }
       ];
@@ -266,6 +286,10 @@ export async function PATCH(request: Request) {
 
   if (action.type === "updateUnit") {
     system.units = system.units.map((unit) => unit.id === action.id ? { ...unit, ...action.patch } : unit);
+  }
+
+  if (action.type === "deleteUnit") {
+    system.units = renumberUnits(system.units.filter((unit) => unit.id !== action.id));
   }
 
   const saved = await saveFirestoreProductionSystem(system);

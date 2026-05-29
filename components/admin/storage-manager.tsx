@@ -1,23 +1,26 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { Archive, Box, CheckCircle2, PackageCheck, RefreshCw, Save } from "lucide-react";
+import { Archive, Box, CheckCircle2, PackageCheck, RefreshCw, Save, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import type { StoreProduct } from "@/lib/catalog";
 import type { ProductionInventoryItem, ProductionSystem, ProductionUnit, StoreOrder, UnitStatus } from "@/lib/firestore-store";
 
 type StorageAction =
   | { type: "saveInventory"; item: Partial<ProductionInventoryItem> }
   | { type: "restockInventory"; id: string; amount: number }
-  | { type: "updateUnit"; id: string; patch: { orderId?: string; customer?: string; status?: UnitStatus } };
+  | { type: "updateUnit"; id: string; patch: { orderId?: string; customer?: string; status?: UnitStatus; notes?: string } }
+  | { type: "deleteUnit"; id: string };
 
-const unitStatuses: UnitStatus[] = ["in_stock", "packaged", "delivered"];
+const unitStatuses: UnitStatus[] = ["in_stock", "packaged", "delivered", "ruined"];
 const statusLabels: Record<UnitStatus, string> = {
   in_stock: "In stock",
   printed: "Printed",
   packaged: "Packaged",
-  delivered: "Delivered"
+  delivered: "Delivered",
+  ruined: "Ruined"
 };
 
 function paintColors(notes: string | null) {
@@ -31,13 +34,22 @@ function boxId(order: StoreOrder) {
   return `BOX-${order.id.slice(0, 6).toUpperCase()}`;
 }
 
-export function StorageManager({ initialSystem, orders }: { initialSystem: ProductionSystem; orders: StoreOrder[] }) {
+export function StorageManager({ initialSystem, orders, products }: { initialSystem: ProductionSystem; orders: StoreOrder[]; products: StoreProduct[] }) {
   const [system, setSystem] = useState(initialSystem);
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
   const ordersById = useMemo(() => new Map(orders.map((order) => [order.id, order])), [orders]);
   const availableUnits = system.units.filter((unit) => unit.status === "in_stock" || unit.status === "printed");
   const openBoxes = orders.filter((order) => order.status !== "delivered" && order.status !== "cancelled");
+  const productStocks = products.map((product) => {
+    const units = system.units.filter((unit) => unit.productSlug === product.slug || unit.productName === product.nameEN);
+    return {
+      product,
+      inStock: units.filter((unit) => unit.status === "in_stock" || unit.status === "printed").length,
+      packaged: units.filter((unit) => unit.status === "packaged").length,
+      ruined: units.filter((unit) => unit.status === "ruined").length
+    };
+  });
 
   function mutate(action: StorageAction) {
     setError("");
@@ -72,6 +84,23 @@ export function StorageManager({ initialSystem, orders }: { initialSystem: Produ
         <Stat label="Open boxes" value={String(openBoxes.length)} />
       </section>
 
+      <Card title="Current product stock" icon={<PackageCheck className="h-5 w-5" />}>
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          {productStocks.map(({ product, inStock, packaged, ruined }) => (
+            <div key={product.id} className="rounded-2xl border border-white/10 bg-black/40 p-4">
+              <p className="text-xs font-black uppercase text-white/40">{product.category}</p>
+              <h3 className="mt-1 font-space text-xl font-black">{product.nameEN}</h3>
+              <div className="mt-4 grid grid-cols-3 gap-2 text-center">
+                <MiniStat label="stock" value={String(inStock)} />
+                <MiniStat label="packed" value={String(packaged)} />
+                <MiniStat label="ruined" value={String(ruined)} />
+              </div>
+            </div>
+          ))}
+          {productStocks.length === 0 ? <p className="rounded-2xl border border-dashed border-white/15 p-6 text-center text-white/45">No products found.</p> : null}
+        </div>
+      </Card>
+
       <Card title="Packing boxes" icon={<Box className="h-5 w-5" />}>
         <div className="grid gap-3 xl:grid-cols-2">
           {openBoxes.map((order) => (
@@ -81,10 +110,9 @@ export function StorageManager({ initialSystem, orders }: { initialSystem: Produ
         </div>
       </Card>
 
-      <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
-        <Card title="Available units" icon={<PackageCheck className="h-5 w-5" />}>
+      <Card title="All units shortcut" icon={<PackageCheck className="h-5 w-5" />}>
           <div className="overflow-x-auto rounded-2xl border border-white/10">
-            <table className="w-full min-w-[760px] text-left text-sm">
+            <table className="w-full min-w-[980px] text-left text-sm">
               <thead className="bg-white/[0.04] text-white/45">
                 <tr>
                   <th className="p-3">Unit ID</th>
@@ -92,35 +120,25 @@ export function StorageManager({ initialSystem, orders }: { initialSystem: Produ
                   <th className="p-3">Order</th>
                   <th className="p-3">Customer</th>
                   <th className="p-3">Status</th>
+                  <th className="p-3">Notes</th>
+                  <th className="p-3 text-right">Remove</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/10">
                 {system.units.map((unit) => (
-                  <tr key={unit.id}>
-                    <td className="p-3 font-mono text-xs font-black text-[#FF2E93]">{unit.id}</td>
-                    <td className="p-3">{unit.productName}</td>
-                    <td className="p-3 text-white/60">{unit.orderId ? unit.orderId.slice(0, 8) : "Stock"}</td>
-                    <td className="p-3">{unit.customer || ordersById.get(unit.orderId)?.customerName || "-"}</td>
-                    <td className="p-3">
-                      <Select value={unit.status === "printed" ? "in_stock" : unit.status} onValueChange={(value) => mutate({ type: "updateUnit", id: unit.id, patch: { status: value as UnitStatus } })}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>{unitStatuses.map((status) => <SelectItem key={status} value={status}>{statusLabels[status]}</SelectItem>)}</SelectContent>
-                      </Select>
-                    </td>
-                  </tr>
+                  <UnitRow key={unit.id} unit={unit} ordersById={ordersById} mutate={mutate} isPending={isPending} />
                 ))}
-                {system.units.length === 0 ? <tr><td className="p-8 text-center text-white/45" colSpan={5}>No finished units yet. Mark a print job done in Production.</td></tr> : null}
+                {system.units.length === 0 ? <tr><td className="p-8 text-center text-white/45" colSpan={7}>No finished units yet. Mark a print job done in Production.</td></tr> : null}
               </tbody>
             </table>
           </div>
-        </Card>
+      </Card>
 
-        <Card title="Kit inventory" icon={<Archive className="h-5 w-5" />}>
-          <div className="grid gap-2">
+      <Card title="Kit inventory" icon={<Archive className="h-5 w-5" />}>
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {system.inventory.map((item) => <InventoryRow key={item.id} item={item} mutate={mutate} isPending={isPending} />)}
           </div>
-        </Card>
-      </div>
+      </Card>
     </div>
   );
 }
@@ -171,24 +189,59 @@ function PackingBox({ order, units, mutate, isPending }: { order: StoreOrder; un
   );
 }
 
+function UnitRow({ unit, ordersById, mutate, isPending }: { unit: ProductionUnit; ordersById: Map<string, StoreOrder>; mutate: (action: StorageAction) => void; isPending: boolean }) {
+  const [notes, setNotes] = useState(unit.notes ?? "");
+  const displayStatus = unit.status === "printed" ? "in_stock" : unit.status;
+
+  return (
+    <tr>
+      <td className="p-3 font-mono text-xs font-black text-[#FF2E93]">{unit.id}</td>
+      <td className="p-3">{unit.productName}</td>
+      <td className="p-3 text-white/60">{unit.orderId ? unit.orderId.slice(0, 8) : "Stock"}</td>
+      <td className="p-3">{unit.customer || ordersById.get(unit.orderId)?.customerName || "-"}</td>
+      <td className="p-3">
+        <Select value={displayStatus} onValueChange={(value) => mutate({ type: "updateUnit", id: unit.id, patch: { status: value as UnitStatus } })}>
+          <SelectTrigger><SelectValue /></SelectTrigger>
+          <SelectContent>{unitStatuses.map((status) => <SelectItem key={status} value={status}>{statusLabels[status]}</SelectItem>)}</SelectContent>
+        </Select>
+      </td>
+      <td className="p-3">
+        <div className="grid grid-cols-[1fr_auto] gap-2">
+          <Input value={notes} placeholder="Ruined corner, repaint, etc." onChange={(event) => setNotes(event.target.value)} />
+          <Button size="icon" variant="outline" onClick={() => mutate({ type: "updateUnit", id: unit.id, patch: { notes } })} disabled={isPending}><Save className="h-4 w-4" /></Button>
+        </div>
+      </td>
+      <td className="p-3 text-right">
+        <Button size="icon" variant="destructive" onClick={() => mutate({ type: "deleteUnit", id: unit.id })} disabled={isPending}><Trash2 className="h-4 w-4" /></Button>
+      </td>
+    </tr>
+  );
+}
+
 function InventoryRow({ item, mutate, isPending }: { item: ProductionInventoryItem; mutate: (action: StorageAction) => void; isPending: boolean }) {
   const [stock, setStock] = useState(String(item.stock));
   const low = item.stock <= item.minThreshold;
   const restockAmount = item.category === "filament" ? 1 : 10;
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-black/40 p-3">
+    <div className="rounded-2xl border border-white/10 bg-black/40 p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="font-bold">{item.name}</p>
+          <p className="font-space text-lg font-black">{item.name}</p>
           <p className="text-xs text-white/45">Minimum {item.minThreshold} {item.unit}</p>
         </div>
         {low ? <span className="rounded-full border border-red-400/30 bg-red-500/15 px-2 py-1 text-xs font-black text-red-100">LOW</span> : null}
       </div>
-      <div className="mt-3 grid grid-cols-[1fr_auto_auto] gap-2">
-        <Input type="number" step="0.001" value={stock} onChange={(event) => setStock(event.target.value)} />
-        <Button variant="outline" onClick={() => mutate({ type: "saveInventory", item: { ...item, stock: Number(stock) } })} disabled={isPending}><Save className="h-4 w-4" /></Button>
-        <Button onClick={() => mutate({ type: "restockInventory", id: item.id, amount: restockAmount })} disabled={isPending}><RefreshCw className="h-4 w-4" /></Button>
+      <div className="mt-4 flex items-end justify-between gap-3">
+        <div>
+          <p className="font-space text-3xl font-black">{item.stock}</p>
+          <p className="text-xs uppercase text-white/45">{item.unit}</p>
+        </div>
+        <div className="grid flex-1 grid-cols-[1fr_auto_auto] gap-2">
+          <Input type="number" step="0.001" value={stock} onChange={(event) => setStock(event.target.value)} />
+          <Button variant="outline" onClick={() => mutate({ type: "saveInventory", item: { ...item, stock: Number(stock) } })} disabled={isPending}><Save className="h-4 w-4" /></Button>
+          <Button onClick={() => mutate({ type: "restockInventory", id: item.id, amount: restockAmount })} disabled={isPending}><RefreshCw className="h-4 w-4" /></Button>
+        </div>
       </div>
     </div>
   );
@@ -200,4 +253,8 @@ function Card({ title, icon, children }: { title: string; icon: React.ReactNode;
 
 function Stat({ label, value }: { label: string; value: string }) {
   return <div className="rounded-2xl border border-white/10 bg-[#0f0f0f] p-4"><p className="text-xs font-black uppercase text-white/45">{label}</p><p className="mt-1 font-space text-3xl font-black text-white">{value}</p></div>;
+}
+
+function MiniStat({ label, value }: { label: string; value: string }) {
+  return <div className="rounded-xl border border-white/10 bg-white/[0.03] p-2"><p className="font-space text-2xl font-black">{value}</p><p className="text-[10px] font-black uppercase text-white/35">{label}</p></div>;
 }
