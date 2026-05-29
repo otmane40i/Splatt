@@ -52,6 +52,11 @@ function productFallback(products: StoreProduct[]) {
   return products[0]?.slug ?? "";
 }
 
+function nextMachineName(machines: ProductionMachine[]) {
+  const next = machines.length + 1;
+  return `Printer ${String(next).padStart(2, "0")}`;
+}
+
 function secondsRemaining(machine: ProductionMachine, now: number) {
   if (machine.status === "paused") return machine.pausedRemainingSeconds ?? machine.estimatedSeconds;
   if (!machine.startedAt) return machine.estimatedSeconds;
@@ -130,9 +135,14 @@ export function ProductionManager({ initialSystem, products, orders }: { initial
   }
 
   function addMachine() {
-    const name = newMachineName.trim();
-    if (!name) return;
-    mutate({ type: "saveMachine", machine: { id: makeId("machine"), name, model: "Bambu Lab A1", status: "idle" } });
+    const machine = {
+      id: makeId("machine"),
+      name: newMachineName.trim() || nextMachineName(system.machines),
+      model: "Bambu Lab A1",
+      status: "idle" as MachineStatus
+    };
+    setSystem((current) => ({ ...current, machines: [...current.machines, { ...machine, currentJobId: null, currentJobName: null, productName: null, startedAt: null, estimatedSeconds: 0, pausedRemainingSeconds: null }] }));
+    mutate({ type: "saveMachine", machine });
     setNewMachineName("");
   }
 
@@ -170,7 +180,7 @@ export function ProductionManager({ initialSystem, products, orders }: { initial
             <p className="mt-1 max-w-2xl text-sm text-white/50">Create print jobs, run machine simulations, and mark finished units. Storage and boxes live in the new Storage section.</p>
           </div>
           <div className="grid gap-2 sm:grid-cols-[220px_auto]">
-            <Input value={newMachineName} placeholder="Machine name" onChange={(event) => setNewMachineName(event.target.value)} />
+            <Input value={newMachineName} placeholder={nextMachineName(system.machines)} onChange={(event) => setNewMachineName(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") addMachine(); }} />
             <Button onClick={addMachine} disabled={isPending}><Plus className="h-4 w-4" /> Add machine</Button>
           </div>
         </div>
@@ -190,6 +200,7 @@ export function ProductionManager({ initialSystem, products, orders }: { initial
             {system.machines.map((machine) => (
               <MachineLine key={machine.id} machine={machine} now={now} isPending={isPending} onPause={() => mutate({ type: "pauseMachine", machineId: machine.id })} onDone={() => mutate({ type: "markDone", machineId: machine.id })} onRemove={() => mutate({ type: "removeMachine", id: machine.id })} />
             ))}
+            {system.machines.length === 0 ? <div className="rounded-2xl border border-dashed border-white/15 bg-black/30 p-5 text-center text-sm text-white/45">No machines yet. Click Add machine to create {nextMachineName(system.machines)}.</div> : null}
           </div>
         </Card>
 
@@ -271,7 +282,7 @@ function MachineLine({ machine, now, isPending, onPause, onDone, onRemove }: { m
       <div className="flex items-center justify-between gap-3">
         <div>
           <h3 className="font-space text-lg font-black">{machine.name}</h3>
-          <p className="text-xs text-white/45">{machine.model || "Bambu Lab A1"}</p>
+          <p className="text-xs text-white/45">Current status</p>
         </div>
         <span className={`rounded-full border px-3 py-1 text-xs font-black uppercase ${machineStyles[machine.status]}`}>{machineLabels[machine.status]}</span>
       </div>
