@@ -36,7 +36,7 @@ export type ProductionItem = {
 
 export type MachineStatus = "idle" | "printing" | "done" | "paused";
 export type PrintJobStatus = "queued" | "printing" | "done" | "cancelled";
-export type UnitStatus = "printed" | "packaged" | "delivered";
+export type UnitStatus = "in_stock" | "printed" | "packaged" | "delivered";
 
 export type ProductionMachine = {
   id: string;

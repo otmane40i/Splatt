@@ -42,6 +42,16 @@ function makeId(prefix: string) {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
 }
 
+function jobPrefix(productSlug: string) {
+  return (productSlug.replace(/^splatt-/, "").split(/[-_]/)[0] || "job").replace(/[^a-z0-9]/gi, "").toLowerCase();
+}
+
+function makeJobId(productSlug: string, queue: PrintQueueJob[]) {
+  const prefix = jobPrefix(productSlug);
+  const count = queue.filter((job) => job.id.toLowerCase().startsWith(`${prefix}-`)).length + 1;
+  return `${prefix}-${String(count).padStart(3, "0")}`;
+}
+
 async function getSystem() {
   return (await getFirestoreProductionSystem()) ?? defaultProductionSystem();
 }
@@ -74,7 +84,7 @@ function cleanJob(job: Partial<PrintQueueJob>, system: ProductionSystem, product
   const product = productBySlug(products, job.productSlug || job.productId || existing?.productSlug || existing?.productId);
   const productSlug = product?.slug ?? existing?.productSlug ?? "";
   return {
-    id: job.id || makeId("job"),
+    id: job.id || makeJobId(productSlug, system.queue),
     productId: product?.id ?? productSlug,
     productSlug,
     productName: product?.nameEN ?? job.productName ?? existing?.productName ?? "Splatt. figure",
@@ -234,7 +244,7 @@ export async function PATCH(request: Request) {
           productName: completedJob.productName,
           orderId: completedJob.linkedOrderId,
           customer: completedJob.customer,
-          status: "printed",
+          status: "in_stock",
           createdAt: new Date()
         }
       ];
