@@ -1,10 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState, useTransition } from "react";
-import { AlertTriangle, Box, CheckCircle2, Clock, Factory, PackageCheck, Pause, Play, Plus, Printer, RefreshCw, Save, Trash2 } from "lucide-react";
+import { AlertTriangle, Box, CheckCircle2, Factory, PackageCheck, Pause, Play, Plus, Printer, RefreshCw, Save, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { formatMad } from "@/lib/utils";
 import type { StoreProduct } from "@/lib/catalog";
@@ -160,103 +159,104 @@ export function ProductionManager({ initialSystem, products, orders }: { initial
   }
 
   return (
-    <div className="space-y-5">
-      <div className="rounded-[28px] border border-white/10 bg-[#0A0A0A] p-4 shadow-[0_0_80px_rgba(255,46,147,0.08)]">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.25em] text-[#FF2E93]">Production dashboard</p>
-            <h1 className="font-space text-3xl font-black text-white md:text-5xl">SPLATT. Factory Control</h1>
-            <p className="mt-2 max-w-2xl text-sm text-white/55">Machines, print jobs, inventory, units, and costs in one Firebase-backed workspace.</p>
-          </div>
-          <div className="grid gap-2 sm:grid-cols-[220px_auto]">
-            <Input value={newMachineName} placeholder="New machine name" onChange={(event) => setNewMachineName(event.target.value)} />
-            <Button onClick={addMachine} disabled={isPending}><Plus className="h-4 w-4" /> Add machine</Button>
-          </div>
-        </div>
-        {error ? <div className="mt-4 rounded-2xl border border-red-400/30 bg-red-500/10 p-3 text-sm font-bold text-red-100">{error}</div> : null}
-      </div>
-
-      <section className="grid gap-3 md:grid-cols-5">
-        <Stat label="Printed today" value={String(stats.today)} />
-        <Stat label="Printed this week" value={String(stats.week)} />
-        <Stat label="Filament week" value={`${stats.filamentKg.toFixed(2)} kg`} />
-        <Stat label="Cost week" value={formatMad(stats.cost)} />
-        <Stat label="Revenue week" value={formatMad(stats.revenue)} />
-      </section>
-
-      <Card title="Machines" icon={<Printer className="h-5 w-5" />}>
-        <div className="grid gap-3 xl:grid-cols-3">
-          {system.machines.map((machine) => (
-            <MachineCard
-              key={machine.id}
-              machine={machine}
-              queue={queuedJobs}
-              now={now}
-              isPending={isPending}
-              onStart={(jobId) => mutate({ type: "startPrint", machineId: machine.id, jobId })}
-              onPause={() => mutate({ type: "pauseMachine", machineId: machine.id })}
-              onDone={() => mutate({ type: "markDone", machineId: machine.id })}
-              onRemove={() => mutate({ type: "removeMachine", id: machine.id })}
-            />
-          ))}
-        </div>
-      </Card>
-
-      <Card title="Print Queue" icon={<Factory className="h-5 w-5" />}>
-        <div className="mb-4 grid gap-3 rounded-2xl border border-white/10 bg-black/35 p-3 lg:grid-cols-[1.1fr_1fr_1fr_auto]">
-          <Select value={jobDraft.productSlug} onValueChange={(value) => setJobDraft((draft) => ({ ...draft, productSlug: value }))}>
-            <SelectTrigger><SelectValue placeholder="Product" /></SelectTrigger>
-            <SelectContent>{products.map((product) => <SelectItem key={product.id} value={product.slug}>{productName(product)}</SelectItem>)}</SelectContent>
-          </Select>
-          <Select value={jobDraft.linkedOrderId || "none"} onValueChange={(value) => setJobDraft((draft) => ({ ...draft, linkedOrderId: value === "none" ? "" : value }))}>
-            <SelectTrigger><SelectValue placeholder="Linked order" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">No order, add to stock</SelectItem>
-              {orders.map((order) => <SelectItem key={order.id} value={order.id}>{order.id.slice(0, 8)} - {order.customerName || order.productName}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          <Select value={jobDraft.assignedMachineId || "none"} onValueChange={(value) => setJobDraft((draft) => ({ ...draft, assignedMachineId: value === "none" ? "" : value }))}>
-            <SelectTrigger><SelectValue placeholder="Assign machine" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">Unassigned</SelectItem>
-              {system.machines.map((machine) => <SelectItem key={machine.id} value={machine.id}>{machine.name}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          <Button onClick={addJob} disabled={isPending || products.length === 0}><Plus className="h-4 w-4" /> Add job</Button>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[1120px] text-left text-sm">
-            <thead className="border-b border-white/10 text-white/45">
-              <tr>
-                <th className="p-3">Job ID</th>
-                <th className="p-3">Product</th>
-                <th className="p-3">Linked order</th>
-                <th className="p-3">Filament</th>
-                <th className="p-3">Estimated time</th>
-                <th className="p-3">Status</th>
-                <th className="p-3">Machine</th>
-                <th className="p-3 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-white/10">
-              {queuedJobs.map((job) => (
-                <JobRow key={job.id} job={job} products={products} machines={system.machines} orders={orders} isPending={isPending} mutate={mutate} />
-              ))}
-              {queuedJobs.length === 0 ? <tr><td className="p-6 text-center text-white/45" colSpan={8}>No active print jobs. Add one above.</td></tr> : null}
-            </tbody>
-          </table>
-        </div>
-        {completedJobs.length > 0 ? (
-          <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] p-3">
-            <p className="mb-2 text-sm font-black uppercase text-[#1FA8A0]">Completed prints</p>
-            <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
-              {completedJobs.slice(0, 9).map((job) => <div key={job.id} className="rounded-xl border border-white/10 bg-black/40 p-3 text-sm"><b>{job.productName}</b><p className="text-white/50">{job.id} - {job.completedAt ? new Date(job.completedAt).toLocaleDateString() : "Done"}</p></div>)}
+    <div className="space-y-4">
+      <div className="overflow-hidden rounded-3xl border border-white/10 bg-[#0A0A0A]">
+        <div className="border-b border-white/10 bg-gradient-to-r from-[#FF2E93]/16 via-white/[0.03] to-[#1FA8A0]/12 p-4">
+          <div className="flex flex-col gap-4 2xl:flex-row 2xl:items-center 2xl:justify-between">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.24em] text-[#FF2E93]">Production control</p>
+              <h1 className="font-space text-3xl font-black text-white md:text-4xl">Factory board</h1>
+              <p className="mt-1 max-w-2xl text-sm text-white/55">Fast actions for machines, queue, inventory, unit IDs, and weekly numbers.</p>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-[220px_auto]">
+              <Input value={newMachineName} placeholder="Machine name" onChange={(event) => setNewMachineName(event.target.value)} />
+              <Button onClick={addMachine} disabled={isPending}><Plus className="h-4 w-4" /> Add machine</Button>
             </div>
           </div>
-        ) : null}
-      </Card>
+        </div>
+        <section className="grid gap-px bg-white/10 sm:grid-cols-2 xl:grid-cols-5">
+          <Stat label="Today" value={String(stats.today)} detail="units printed" />
+          <Stat label="This week" value={String(stats.week)} detail="completed units" />
+          <Stat label="Filament" value={`${stats.filamentKg.toFixed(2)} kg`} detail="weekly use" />
+          <Stat label="Cost" value={formatMad(stats.cost)} detail="production" />
+          <Stat label="Revenue" value={formatMad(stats.revenue)} detail="completed orders" />
+        </section>
+      </div>
 
-      <div className="grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
+      {error ? <div className="rounded-2xl border border-red-400/30 bg-red-500/10 p-3 text-sm font-bold text-red-100">{error}</div> : null}
+
+      <div className="grid gap-4 2xl:grid-cols-[440px_1fr]">
+        <Card title="Machines" icon={<Printer className="h-5 w-5" />}>
+          <div className="grid gap-3">
+            {system.machines.map((machine) => (
+              <MachineCard
+                key={machine.id}
+                machine={machine}
+                queue={queuedJobs}
+                now={now}
+                isPending={isPending}
+                onStart={(jobId) => mutate({ type: "startPrint", machineId: machine.id, jobId })}
+                onPause={() => mutate({ type: "pauseMachine", machineId: machine.id })}
+                onDone={() => mutate({ type: "markDone", machineId: machine.id })}
+                onRemove={() => mutate({ type: "removeMachine", id: machine.id })}
+              />
+            ))}
+          </div>
+        </Card>
+
+        <Card title="Print Queue" icon={<Factory className="h-5 w-5" />}>
+          <div className="mb-3 grid gap-2 rounded-2xl border border-white/10 bg-black/35 p-3 xl:grid-cols-[1.1fr_1fr_1fr_auto]">
+            <Select value={jobDraft.productSlug} onValueChange={(value) => setJobDraft((draft) => ({ ...draft, productSlug: value }))}>
+              <SelectTrigger><SelectValue placeholder="Product" /></SelectTrigger>
+              <SelectContent>{products.map((product) => <SelectItem key={product.id} value={product.slug}>{productName(product)}</SelectItem>)}</SelectContent>
+            </Select>
+            <Select value={jobDraft.linkedOrderId || "none"} onValueChange={(value) => setJobDraft((draft) => ({ ...draft, linkedOrderId: value === "none" ? "" : value }))}>
+              <SelectTrigger><SelectValue placeholder="Linked order" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">No order, add to stock</SelectItem>
+                {orders.map((order) => <SelectItem key={order.id} value={order.id}>{order.id.slice(0, 8)} - {order.customerName || order.productName}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Select value={jobDraft.assignedMachineId || "none"} onValueChange={(value) => setJobDraft((draft) => ({ ...draft, assignedMachineId: value === "none" ? "" : value }))}>
+              <SelectTrigger><SelectValue placeholder="Assign machine" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Unassigned</SelectItem>
+                {system.machines.map((machine) => <SelectItem key={machine.id} value={machine.id}>{machine.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Button onClick={addJob} disabled={isPending || products.length === 0}><Plus className="h-4 w-4" /> Add job</Button>
+          </div>
+          <div className="overflow-x-auto rounded-2xl border border-white/10">
+            <table className="w-full min-w-[980px] text-left text-sm">
+              <thead className="bg-white/[0.04] text-white/45">
+                <tr>
+                  <th className="p-3">Job ID</th>
+                  <th className="p-3">Product</th>
+                  <th className="p-3">Linked order</th>
+                  <th className="p-3">Filament</th>
+                  <th className="p-3">Time</th>
+                  <th className="p-3">Status</th>
+                  <th className="p-3">Machine</th>
+                  <th className="p-3 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/10">
+                {queuedJobs.map((job) => (
+                  <JobRow key={job.id} job={job} products={products} machines={system.machines} orders={orders} isPending={isPending} mutate={mutate} />
+                ))}
+                {queuedJobs.length === 0 ? <tr><td className="p-8 text-center text-white/45" colSpan={8}>No active jobs yet. Choose a product above and add the first print.</td></tr> : null}
+              </tbody>
+            </table>
+          </div>
+          {completedJobs.length > 0 ? (
+            <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+              {completedJobs.slice(0, 6).map((job) => <div key={job.id} className="rounded-2xl border border-[#1FA8A0]/20 bg-[#1FA8A0]/10 p-3 text-sm"><b>{job.productName}</b><p className="mt-1 truncate text-white/50">{job.id}</p></div>)}
+            </div>
+          ) : null}
+        </Card>
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-[0.85fr_1.15fr]">
         <Card title="Inventory" icon={<Box className="h-5 w-5" />}>
           <div className="grid gap-3">
             {system.inventory.map((item) => (
@@ -317,21 +317,24 @@ export function ProductionManager({ initialSystem, products, orders }: { initial
 
 function Card({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) {
   return (
-    <section className="rounded-[28px] border border-white/10 bg-white/[0.035] p-4 shadow-[0_0_60px_rgba(31,168,160,0.06)]">
-      <div className="mb-4 flex items-center gap-3">
-        <div className="grid h-10 w-10 place-items-center rounded-2xl bg-[#FF2E93]/15 text-[#FF2E93]">{icon}</div>
-        <h2 className="font-space text-2xl font-black text-white">{title}</h2>
+    <section className="rounded-3xl border border-white/10 bg-[#0f0f0f] p-4">
+      <div className="mb-3 flex items-center gap-3 border-b border-white/10 pb-3">
+        <div className="grid h-9 w-9 place-items-center rounded-xl bg-[#FF2E93]/15 text-[#FF2E93]">{icon}</div>
+        <h2 className="font-space text-xl font-black text-white">{title}</h2>
       </div>
       {children}
     </section>
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+function Stat({ label, value, detail }: { label: string; value: string; detail: string }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.035] p-4">
+    <div className="bg-[#0f0f0f] p-4">
       <p className="text-xs font-black uppercase text-white/45">{label}</p>
-      <p className="mt-1 font-space text-2xl font-black text-white">{value}</p>
+      <div className="mt-1 flex items-end justify-between gap-3">
+        <p className="font-space text-2xl font-black text-white">{value}</p>
+        <p className="pb-1 text-xs font-bold text-white/35">{detail}</p>
+      </div>
     </div>
   );
 }
