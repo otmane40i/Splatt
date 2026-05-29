@@ -18,7 +18,7 @@ import {
   type UnitStatus
 } from "@/lib/firestore-store";
 
-type UnitPatch = Partial<Pick<ProductionUnit, "orderId" | "customer" | "status" | "notes">>;
+type UnitPatch = Partial<Pick<ProductionUnit, "orderId" | "customer" | "status" | "notes" | "kitDeducted">>;
 
 type ProductionAction =
   | { type: "saveMachine"; machine: Partial<ProductionMachine> }
@@ -119,19 +119,37 @@ function secondsRemaining(machine: ProductionMachine) {
   return Math.max(0, machine.estimatedSeconds - elapsed);
 }
 
-function deductInventory(inventory: ProductionInventoryItem[]) {
-  const deductions: Record<ProductionInventoryItem["category"], number> = {
-    filament: 0.187,
+function adjustInventory(inventory: ProductionInventoryItem[], adjustments: Partial<Record<ProductionInventoryItem["category"], number>>) {
+  return inventory.map((item) => ({
+    ...item,
+    stock: Math.max(0, Number((item.stock + (adjustments[item.category] ?? 0)).toFixed(3)))
+  }));
+}
+
+function deductPrintInventory(inventory: ProductionInventoryItem[]) {
+  return adjustInventory(inventory, { filament: -0.187 });
+}
+
+function deductKitInventory(inventory: ProductionInventoryItem[]) {
+  const deductions: Partial<Record<ProductionInventoryItem["category"], number>> = {
+    paint: -3,
+    brush: -1,
+    cup: -2,
+    box: -1,
+    plate: -1
+  };
+  return adjustInventory(inventory, deductions);
+}
+
+function restoreKitInventory(inventory: ProductionInventoryItem[]) {
+  const additions: Partial<Record<ProductionInventoryItem["category"], number>> = {
     paint: 3,
     brush: 1,
     cup: 2,
     box: 1,
     plate: 1
   };
-  return inventory.map((item) => ({
-    ...item,
-    stock: Math.max(0, Number((item.stock - (deductions[item.category] ?? 0)).toFixed(3)))
-  }));
+  return adjustInventory(inventory, additions);
 }
 
 function unitPrefix(productSlug: string, productName: string) {
@@ -254,7 +272,7 @@ export async function PATCH(request: Request) {
     if (job && job.status !== "done") {
       const completedJob = { ...job, status: "done" as PrintJobStatus, completedAt: new Date() };
       system.queue = system.queue.map((item) => item.id === job.id ? completedJob : item);
-      system.inventory = deductInventory(system.inventory);
+      system.inventory = deductPrintInventory(system.inventory);
       system.units = [
         ...system.units,
         {
@@ -265,6 +283,7 @@ export async function PATCH(request: Request) {
           customer: completedJob.customer,
           status: "in_stock",
           notes: "",
+          kitDeducted: false,
           createdAt: new Date()
         }
       ];
@@ -285,7 +304,22 @@ export async function PATCH(request: Request) {
   }
 
   if (action.type === "updateUnit") {
-    system.units = system.units.map((unit) => unit.id === action.id ? { ...unit, ...action.patch } : unit);
+    const currentUnit = system.units.find((unit) => unit.id === action.id);
+    if (currentUnit) {
+      const nextStatus = action.patch.status ?? currentUnit.status;
+      const shouldDeductKit = (nextStatus === "packaged" || nextStatus === "delivered") && !currentUnit.kitDeducted;
+      const shouldRestoreKit = nextStatus === "in_stock" && currentUnit.kitDeducted;
+      if (shouldDeductKit) system.inventory = deductKitInventory(system.inventory);
+      if (shouldRestoreKit) system.inventory = restoreKitInventory(system.inventory);
+      system.units = system.units.map((unit) => {
+        if (unit.id !== action.id) return unit;
+        return {
+          ...unit,
+          ...action.patch,
+          kitDeducted: shouldDeductKit ? true : shouldRestoreKit ? false : action.patch.kitDeducted ?? unit.kitDeducted
+        };
+      });
+    }
   }
 
   if (action.type === "deleteUnit") {

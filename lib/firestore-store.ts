@@ -84,6 +84,7 @@ export type ProductionUnit = {
   customer: string;
   status: UnitStatus;
   notes: string;
+  kitDeducted: boolean;
   createdAt: Date;
 };
 
@@ -220,6 +221,7 @@ function unitFromData(data: FirebaseFirestore.DocumentData): ProductionUnit {
     customer: String(data.customer ?? ""),
     status: String(data.status ?? "printed") as UnitStatus,
     notes: String(data.notes ?? ""),
+    kitDeducted: Boolean(data.kitDeducted ?? false),
     createdAt: asDate(data.createdAt)
   };
 }

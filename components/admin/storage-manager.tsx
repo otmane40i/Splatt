@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Archive, Box, CheckCircle2, PackageCheck, RefreshCw, RotateCcw, Save, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -307,6 +307,10 @@ function InventoryRow({ item, mutate, isPending }: { item: ProductionInventoryIt
   const [stock, setStock] = useState(String(item.stock));
   const low = item.stock <= item.minThreshold;
   const restockAmount = item.category === "filament" ? 1 : 10;
+
+  useEffect(() => {
+    setStock(String(item.stock));
+  }, [item.stock]);
 
   return (
     <div className="rounded-2xl border border-white/10 bg-black/40 p-4">
