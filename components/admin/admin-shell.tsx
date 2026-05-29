@@ -14,10 +14,10 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   const links = [
     { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
     { href: "/admin/products", label: "Products", icon: Package },
+    { href: "/admin/orders", label: "Orders", icon: ReceiptText },
     { href: "/admin/production", label: "Production", icon: Factory },
     { href: "/admin/storage", label: "Storage", icon: Boxes },
-    { href: "/admin/discounts", label: "Discounts", icon: BadgePercent },
-    { href: "/admin/orders", label: "Orders", icon: ReceiptText }
+    { href: "/admin/discounts", label: "Discounts", icon: BadgePercent }
   ];
 
   return (

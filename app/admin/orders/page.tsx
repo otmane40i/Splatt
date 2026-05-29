@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { OrdersManager } from "@/components/admin/orders-manager";
 import type { OrderStatus } from "@/lib/status";
-import { getFirestoreOrders, type StoreOrder } from "@/lib/firestore-store";
+import { defaultProductionSystem, getFirestoreOrders, getFirestoreProductionSystem, type StoreOrder } from "@/lib/firestore-store";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +27,10 @@ export default async function AdminOrdersPage({
     return [];
   });
   const activeMonth = searchParams.month;
+  const productionSystem = await getFirestoreProductionSystem().catch((error) => {
+    console.error("Production system unavailable for orders:", error);
+    return defaultProductionSystem();
+  });
   const filteredOrders = activeMonth
     ? orders.filter((order) => {
       const date = new Date(order.createdAt);
@@ -34,5 +38,5 @@ export default async function AdminOrdersPage({
     })
     : orders;
 
-  return <OrdersManager orders={filteredOrders} allOrders={orders} activeStatus={searchParams.status} activeMonth={activeMonth} />;
+  return <OrdersManager orders={filteredOrders} allOrders={orders} units={(productionSystem ?? defaultProductionSystem()).units} activeStatus={searchParams.status} activeMonth={activeMonth} />;
 }
