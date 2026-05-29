@@ -28,6 +28,9 @@ model Product {
   stockQuantity Int?
   bundleQuantity Int?
   bundlePrice Int?
+  filamentGrams Int @default(187)
+  printTimeMinutes Int @default(240)
+  productionCost Int @default(90)
   category  String
   inStock   Boolean  @default(true)
   featured  Boolean  @default(false)

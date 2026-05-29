@@ -17,8 +17,19 @@ function productWithDefaults(data: typeof productSchema._type) {
     model3d: data.model3d ?? null,
     stockQuantity: data.stockQuantity ?? null,
     bundleQuantity: data.bundleQuantity ?? null,
-    bundlePrice: data.bundlePrice ?? null
+    bundlePrice: data.bundlePrice ?? null,
+    filamentGrams: data.filamentGrams ?? 187,
+    printTimeMinutes: data.printTimeMinutes ?? 240,
+    productionCost: data.productionCost ?? 90
   };
+}
+
+function prismaProductData(data: ReturnType<typeof productWithDefaults>) {
+  const { filamentGrams, printTimeMinutes, productionCost, ...product } = data;
+  void filamentGrams;
+  void printTimeMinutes;
+  void productionCost;
+  return product;
 }
 
 export async function GET() {
@@ -40,7 +51,7 @@ export async function POST(request: Request) {
   const productData = productWithDefaults(parsed.data);
   const firestoreProduct = await saveFirestoreProduct({ id: parsed.data.slug, ...productData });
   if (firestoreProduct) return NextResponse.json(firestoreProduct, { status: 201 });
-  const product = await prisma.product.create({ data: productData });
+  const product = await prisma.product.create({ data: prismaProductData(productData) });
   return NextResponse.json(product, { status: 201 });
 }
 
@@ -60,7 +71,7 @@ export async function PUT(request: Request) {
   const productData = productWithDefaults(parsed.data);
   const firestoreProduct = await saveFirestoreProduct({ id: body.id, ...productData });
   if (firestoreProduct) return NextResponse.json(firestoreProduct);
-  const product = await prisma.product.update({ where: { id: body.id }, data: productData });
+  const product = await prisma.product.update({ where: { id: body.id }, data: prismaProductData(productData) });
   return NextResponse.json(product);
 }
 

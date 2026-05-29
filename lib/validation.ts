@@ -13,6 +13,9 @@ export const productSchema = z.object({
   stockQuantity: z.coerce.number().int().min(0).optional().nullable(),
   bundleQuantity: z.coerce.number().int().min(2).optional().nullable(),
   bundlePrice: z.coerce.number().int().positive().optional().nullable(),
+  filamentGrams: z.coerce.number().int().min(1).optional().default(187),
+  printTimeMinutes: z.coerce.number().int().min(1).optional().default(240),
+  productionCost: z.coerce.number().int().min(0).optional().default(90),
   category: z.string().min(2),
   inStock: z.coerce.boolean(),
   featured: z.coerce.boolean()

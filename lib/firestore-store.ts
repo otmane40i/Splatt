@@ -35,7 +35,7 @@ export type ProductionItem = {
 };
 
 export type MachineStatus = "idle" | "printing" | "done" | "paused";
-export type PrintJobStatus = "queued" | "printing" | "done";
+export type PrintJobStatus = "queued" | "printing" | "done" | "cancelled";
 export type UnitStatus = "printed" | "packaged" | "delivered";
 
 export type ProductionMachine = {
@@ -53,6 +53,8 @@ export type ProductionMachine = {
 
 export type PrintQueueJob = {
   id: string;
+  productId: string;
+  productSlug: string;
   productName: string;
   linkedOrderId: string;
   customer: string;
@@ -76,6 +78,7 @@ export type ProductionInventoryItem = {
 
 export type ProductionUnit = {
   id: string;
+  productSlug: string;
   productName: string;
   orderId: string;
   customer: string;
@@ -112,6 +115,9 @@ function productFromDoc(id: string, data: FirebaseFirestore.DocumentData): Store
     stockQuantity: typeof data.stockQuantity === "number" ? data.stockQuantity : null,
     bundleQuantity: typeof data.bundleQuantity === "number" ? data.bundleQuantity : null,
     bundlePrice: typeof data.bundlePrice === "number" ? data.bundlePrice : null,
+    filamentGrams: Number(data.filamentGrams ?? 187),
+    printTimeMinutes: Number(data.printTimeMinutes ?? 240),
+    productionCost: Number(data.productionCost ?? 90),
     category: String(data.category ?? "Figures"),
     inStock: Boolean(data.inStock ?? true),
     featured: Boolean(data.featured ?? false),
@@ -164,7 +170,7 @@ function machineFromData(data: FirebaseFirestore.DocumentData): ProductionMachin
   return {
     id: String(data.id ?? ""),
     name: String(data.name ?? "Printer"),
-    model: String(data.model ?? ""),
+    model: String(data.model ?? "Bambu Lab A1"),
     status: String(data.status ?? "idle") as MachineStatus,
     currentJobId: typeof data.currentJobId === "string" ? data.currentJobId : null,
     currentJobName: typeof data.currentJobName === "string" ? data.currentJobName : null,
@@ -178,6 +184,8 @@ function machineFromData(data: FirebaseFirestore.DocumentData): ProductionMachin
 function queueJobFromData(data: FirebaseFirestore.DocumentData): PrintQueueJob {
   return {
     id: String(data.id ?? ""),
+    productId: String(data.productId ?? data.productSlug ?? ""),
+    productSlug: String(data.productSlug ?? data.productId ?? ""),
     productName: String(data.productName ?? ""),
     linkedOrderId: String(data.linkedOrderId ?? ""),
     customer: String(data.customer ?? ""),
@@ -205,6 +213,7 @@ function inventoryFromData(data: FirebaseFirestore.DocumentData): ProductionInve
 function unitFromData(data: FirebaseFirestore.DocumentData): ProductionUnit {
   return {
     id: String(data.id ?? ""),
+    productSlug: String(data.productSlug ?? ""),
     productName: String(data.productName ?? ""),
     orderId: String(data.orderId ?? ""),
     customer: String(data.customer ?? ""),
@@ -216,7 +225,7 @@ function unitFromData(data: FirebaseFirestore.DocumentData): ProductionUnit {
 export function defaultProductionSystem(): ProductionSystem {
   return {
     machines: [
-      { id: "printer-1", name: "Printer 01", model: "Bambu Lab", status: "idle", currentJobId: null, currentJobName: null, productName: null, startedAt: null, estimatedSeconds: 0, pausedRemainingSeconds: null }
+      { id: "printer-1", name: "Printer 01", model: "Bambu Lab A1", status: "idle", currentJobId: null, currentJobName: null, productName: null, startedAt: null, estimatedSeconds: 0, pausedRemainingSeconds: null }
     ],
     queue: [],
     inventory: [
@@ -270,6 +279,31 @@ export async function saveFirestoreProduct(product: Omit<StoreProduct, "createdA
   );
   const saved = await ref.get();
   return productFromDoc(saved.id, saved.data() ?? {});
+}
+
+export async function adjustFirestoreProductStock(productSlugOrId: string, delta: number) {
+  const db = getFirebaseDb();
+  if (!db || !productSlugOrId) return null;
+
+  const direct = db.collection("products").doc(productSlugOrId);
+  let ref = direct;
+  let saved = await direct.get();
+
+  if (!saved.exists) {
+    const snapshot = await db.collection("products").where("slug", "==", productSlugOrId).limit(1).get();
+    const found = snapshot.docs[0];
+    if (!found) return null;
+    ref = found.ref;
+    saved = found;
+  }
+
+  const current = typeof saved.data()?.stockQuantity === "number" ? Number(saved.data()?.stockQuantity) : 0;
+  await ref.update({
+    stockQuantity: Math.max(0, current + delta),
+    updatedAt: FieldValue.serverTimestamp()
+  });
+  const updated = await ref.get();
+  return productFromDoc(updated.id, updated.data() ?? {});
 }
 
 export async function deleteFirestoreProduct(id: string) {

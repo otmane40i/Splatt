@@ -26,6 +26,9 @@ function createBlankProduct(): ProductDraft {
   stockQuantity: 10,
   bundleQuantity: 2,
   bundlePrice: null,
+  filamentGrams: 187,
+  printTimeMinutes: 240,
+  productionCost: 90,
   category: "Figures",
   inStock: true,
   featured: false
@@ -153,6 +156,9 @@ export function ProductsManager({ products }: { products: StoreProduct[] }) {
               <Field label="Price MAD" type="number" value={String(draft.price)} onChange={(value) => setDraft({ ...draft, price: Number(value) })} />
               <Field label="Category" value={draft.category} onChange={(value) => setDraft({ ...draft, category: value })} />
               <Field label="Available units" type="number" value={String(draft.stockQuantity ?? 0)} onChange={(value) => setDraft({ ...draft, stockQuantity: Math.max(0, Number(value)) })} />
+              <Field label="Filament grams" type="number" value={String(draft.filamentGrams)} onChange={(value) => setDraft({ ...draft, filamentGrams: Math.max(1, Number(value)) })} />
+              <Field label="Print time minutes" type="number" value={String(draft.printTimeMinutes)} onChange={(value) => setDraft({ ...draft, printTimeMinutes: Math.max(1, Number(value)) })} />
+              <Field label="Production cost MAD" type="number" value={String(draft.productionCost)} onChange={(value) => setDraft({ ...draft, productionCost: Math.max(0, Number(value)) })} />
               <div className="grid gap-2">
                 <Label>Buy-together deal</Label>
                 <div className="grid grid-cols-[0.7fr_1fr] gap-2">

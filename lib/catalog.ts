@@ -11,6 +11,9 @@ export type StoreProduct = {
   stockQuantity: number | null;
   bundleQuantity: number | null;
   bundlePrice: number | null;
+  filamentGrams: number;
+  printTimeMinutes: number;
+  productionCost: number;
   category: string;
   inStock: boolean;
   featured: boolean;
@@ -39,6 +42,9 @@ export const sampleProducts: StoreProduct[] = [
     stockQuantity: 12,
     bundleQuantity: 2,
     bundlePrice: 650,
+    filamentGrams: 187,
+    printTimeMinutes: 240,
+    productionCost: 90,
     category: "Figures",
     inStock: true,
     featured: true,
@@ -58,6 +64,9 @@ export const sampleProducts: StoreProduct[] = [
     stockQuantity: 16,
     bundleQuantity: 2,
     bundlePrice: 550,
+    filamentGrams: 160,
+    printTimeMinutes: 210,
+    productionCost: 75,
     category: "Figures",
     inStock: true,
     featured: true,
@@ -77,6 +86,9 @@ export const sampleProducts: StoreProduct[] = [
     stockQuantity: 8,
     bundleQuantity: null,
     bundlePrice: null,
+    filamentGrams: 220,
+    printTimeMinutes: 300,
+    productionCost: 120,
     category: "Premium",
     inStock: true,
     featured: true,
@@ -96,6 +108,9 @@ export const sampleProducts: StoreProduct[] = [
     stockQuantity: 6,
     bundleQuantity: null,
     bundlePrice: null,
+    filamentGrams: 260,
+    printTimeMinutes: 360,
+    productionCost: 150,
     category: "Premium",
     inStock: true,
     featured: true,
