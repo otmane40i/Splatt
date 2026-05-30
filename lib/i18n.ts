@@ -2,7 +2,7 @@ export type Locale = "en" | "fr";
 
 export const dictionary = {
   en: {
-    nav: { home: "Home", shop: "Shop", about: "About" },
+    nav: { home: "Home", shop: "Shop", about: "About", faq: "FAQs", contact: "Contact", track: "Track Order" },
     cta: "Shop Now",
     heroTagline: "Created by You.",
     heroCopy:
@@ -13,7 +13,7 @@ export const dictionary = {
     order: "Order via WhatsApp"
   },
   fr: {
-    nav: { home: "Accueil", shop: "Shop", about: "A propos" },
+    nav: { home: "Accueil", shop: "Shop", about: "A propos", faq: "FAQs", contact: "Contact", track: "Suivre commande" },
     cta: "Shop Now",
     heroTagline: "Created by You.",
     heroCopy:

@@ -7,19 +7,29 @@ export const dynamic = "force-dynamic";
 export default async function ShopPage({
   searchParams
 }: {
-  searchParams: { category?: string };
+  searchParams: { category?: string; q?: string };
 }) {
   const allProducts = await getProducts();
-  const products = searchParams.category
+  const categoryProducts = searchParams.category
     ? allProducts.filter((product) => product.category === searchParams.category)
     : allProducts;
+  const query = searchParams.q?.trim().toLowerCase() ?? "";
+  const products = query
+    ? categoryProducts.filter((product) => [
+      product.nameEN,
+      product.nameFR,
+      product.descEN,
+      product.descFR,
+      product.category
+    ].join(" ").toLowerCase().includes(query))
+    : categoryProducts;
   const categories = getCategories(allProducts);
 
   return (
     <main className="container-page py-12">
       <div className="mb-8">
         <p className="text-sm font-black uppercase text-splatt-pink">Shop</p>
-        <h1 className="font-space text-5xl font-black">DIY figures</h1>
+        <h1 className="font-space text-5xl font-black">{query ? `Search: ${searchParams.q}` : "DIY figures"}</h1>
       </div>
       <ShopFilters categories={categories} active={searchParams.category} />
       {products.length > 0 ? (
